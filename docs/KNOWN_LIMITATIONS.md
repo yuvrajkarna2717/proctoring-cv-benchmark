@@ -1,6 +1,16 @@
 # Known limitations
 
-Updated at the end of each phase. Status: Phase 4 (2026-11-11), before the Phase 3 and Phase 4 real-webcam sessions.
+Updated at the end of each phase. Status: Phase 5 (2026-11-11). The user's Phase 4 webcam session led to GAZE_AWAY tuning; Phase 3 and Phase 5 real-webcam checks are pending.
+
+## Scope of Phase 5 results (image quality)
+
+- **Limits come from one portrait.** The face luma limits are the identity enrollment gate's (60–200); the sharpness limit (0.01) sits between the portrait's sharp (0.08 at the default 640 px read) and blurred (0.0017) values; the rest are starting values. No real room, webcam, or skin tone has been measured.
+- **Skin tone.** Luma thresholds treat every face alike. Under the same light a darker face has a lower luma, so "dark" may be reported for a well-lit darker face, and "too bright" may be missed for a lighter one. Check with diverse faces before any product use; a per-person baseline (like the attention calibration) may be needed.
+- **Auto exposure and noise.** Webcams raise gain in dim light, which keeps the luma near normal and adds noise. Noise raises the sharpness measure, so a dim, noisy image can pass both the lighting and the sharpness check.
+- **Periodic texture.** Normalized sharpness is high-frequency energy relative to contrast. A fine regular pattern (a checkered shirt filling the face box) can score as sharp even when blurred; faces and edges behave as expected.
+- **The face box is a hint up to 1.5 s old.** The quality engine runs at 1 FPS and uses the face landmarker's latest box; after fast movement the crop can include background. Without a face (or with a hint older than 1.5 s) the face checks are undecided.
+- **Read-back cost depends on the GPU's load.** 9–13 ms p50 per sample in the smoke runs, 50–330 ms in the portrait runs where the test page redrew a filtered canvas every frame. At 1 FPS even the high values leave the worker mostly idle, but they would matter at higher rates.
+- **`imageIssues` can be null** for a violation that starts before the first quality sample of a detection run (about the first second).
 
 ## Scope of Phase 4 results (attention)
 

@@ -78,11 +78,20 @@ Status (2026-11-11): implemented, with additions aimed at users finding the old 
 
 Defaults (balanced): GAZE_AWAY 500 ms, clear after 300 ms, cooldown 2000 ms (tuned by the user on a real webcam; first set to 2000 / 600 / 3000), HEAD_TURNED 1500 ms, EYES_CLOSED 2000 ms. Conventions were checked on one public-domain portrait; enabling blendshapes and matrices added no measurable latency. `solvePnP` was not compared (it needs OpenCV.js). Open: real-person checks (checklist in `docs/TESTING_GUIDE.md`) and annotated recordings (Phase 7). See `docs/PHASE4_REPORT.md`.
 
-### Phase 5 — Image quality
+### Phase 5 — Image quality (implemented; real-condition checks pending)
 
 - Brightness, under/over-exposure, contrast, Laplacian-variance blur on the face region and the full frame, face size relative to frame; 1 FPS.
 - Events `LIGHTING_ISSUE`, `LOW_IMAGE_QUALITY`.
 - Measure whether CPU readback (`getImageData`) cost matters; Phase 1 measured about 7–8 ms per 720p frame for the diagnostic engine.
+
+Status (2026-11-11): implemented as a model-free engine at 1 FPS that measures the face region from the face landmarker's latest face box (passed with the frame as a hint).
+
+- Sharpness is normalized by contrast, so a dark but sharp face is not called blurry.
+- Both rules are severity low with 5 s minimum.
+- Other violations record the image problems present when they started (`imageIssues`).
+- Read-back cost: one read per sample at 640 px, 8.9 ms (Chrome) and 12.5 ms (Edge) p50 in the smoke runs; much higher while the GPU was busy in the portrait runs.
+
+Open: limits checked on real rooms and webcams, and with diverse skin tones. See `docs/PHASE5_REPORT.md`.
 
 ### Phase 6 — Object detection
 

@@ -171,6 +171,42 @@ export function EngineCard({ engine }) {
               </Col>
             </>
           )}
+          {engine.kind === "image-quality" && (
+            <>
+              <Col xs={6} md={3}>
+                <CommitNumberInput
+                  key={`analysis-${engine.engineConfig.analysisWidth}`}
+                  id={`${engine.id}-analysis-width`}
+                  label="Frame analysis width"
+                  unit="px"
+                  value={/** @type {number} */ (engine.engineConfig.analysisWidth)}
+                  min={32}
+                  max={1920}
+                  step={16}
+                  disabled={busy}
+                  onCommit={(value) =>
+                    controller.configureEngine(engine.id, { analysisWidth: value })
+                  }
+                />
+              </Col>
+              <Col xs={6} md={3}>
+                <CommitNumberInput
+                  key={`crop-${engine.engineConfig.faceCropWidth}`}
+                  id={`${engine.id}-face-crop-width`}
+                  label="Face crop width"
+                  unit="px"
+                  value={/** @type {number} */ (engine.engineConfig.faceCropWidth)}
+                  min={32}
+                  max={512}
+                  step={8}
+                  disabled={busy}
+                  onCommit={(value) =>
+                    controller.configureEngine(engine.id, { faceCropWidth: value })
+                  }
+                />
+              </Col>
+            </>
+          )}
           {engine.kind === "face-landmarker" && (
             <>
               <Col xs={6} md={3}>

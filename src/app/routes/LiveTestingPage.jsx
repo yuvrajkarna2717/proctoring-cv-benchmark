@@ -11,6 +11,7 @@ import { useLabSnapshot } from "../../ui/common/labContext.js";
 import { DetectionToolbar } from "../../ui/detections/DetectionToolbar.jsx";
 import { EngineCard } from "../../ui/detections/EngineCard.jsx";
 import { CalibrationPanel } from "../../ui/identity/CalibrationPanel.jsx";
+import { ImageQualityPanel } from "../../ui/quality/ImageQualityPanel.jsx";
 import { IdentityPanel } from "../../ui/identity/IdentityPanel.jsx";
 import { ViolationsPanel } from "../../ui/violations/ViolationsPanel.jsx";
 
@@ -27,6 +28,7 @@ export function LiveTestingPage() {
         <CameraPanel />
         <AttentionPanel />
         <CalibrationOverlay />
+        <ImageQualityPanel />
         <IdentityPanel />
         <CalibrationPanel />
         <EventLog entries={snapshot.log} />

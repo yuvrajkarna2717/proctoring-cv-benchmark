@@ -4,13 +4,14 @@ import { CameraManager } from "../capture/CameraManager.js";
 import { FrameScheduler } from "../capture/FrameScheduler.js";
 import { VideoFrameSource } from "../capture/VideoFrameSource.js";
 import { DEFAULT_LAB_CONFIG } from "../config/detection.config.js";
-import { validateLabConfig } from "../config/schema.js";
+import { validateImageQualityConfig, validateLabConfig } from "../config/schema.js";
 import { closeFrame } from "../engines/EngineContract.js";
 import { ENGINE_CONFIG_SCHEMAS } from "../engines/engineKinds.js";
 import { DEFAULT_FACE_VERIFIER_CONFIG } from "../engines/verification/faceVerifierConfig.js";
 import { AttentionManager } from "../attention/AttentionManager.js";
 import { PRESET_RULE_TYPES, attentionPreset } from "../attention/presets.js";
 import { IdentityManager } from "../identity/IdentityManager.js";
+import { QualityMonitor } from "../quality/qualityModel.js";
 import { createIdentityStore } from "../identity/IdentityStore.js";
 import { DetectionPipeline } from "../pipeline/DetectionPipeline.js";
 import { ViolationEngine } from "../pipeline/ViolationEngine.js";
@@ -132,6 +133,13 @@ export class LabController {
   #attention;
   /** status, target, and attempt of the calibration last published */
   #calibrationKey = "";
+  /** @type {QualityMonitor} */
+  #quality;
+  /**
+   * Primary face of the face source engine's latest result, passed to image-quality engines.
+   * @type {import('../engines/quality/ImageQualityEngine.js').FaceHint | null}
+   */
+  #faceHint = null;
   /** @type {ReturnType<typeof setInterval> | null} */
   #refreshTimer = null;
   #dirty = false;
@@ -170,7 +178,9 @@ export class LabController {
     this.#violations = new ViolationEngine(this.#config.violations, {
       identitySourceEngineId: this.#config.identity.sourceEngineId,
       attentionSourceEngineId: this.#config.attention.sourceEngineId,
+      qualitySourceEngineId: this.#config.imageQuality.sourceEngineId,
     });
+    this.#quality = new QualityMonitor(this.#config.imageQuality);
     this.#violations.onEvent((event) => this.#onViolationEvent(event));
     this.#identity = new IdentityManager({
       config: this.#config.identity,
@@ -481,6 +491,8 @@ export class LabController {
     this.#violations.clear();
     this.#identity.clearComparisons();
     this.#attention.startSession();
+    this.#quality.clear();
+    this.#faceHint = null;
     this.#pipeline.start();
     this.#detectionRunning = true;
     this.#log("info", "pipeline", "Detection started; metrics and violations reset");
@@ -565,6 +577,29 @@ export class LabController {
     }
     this.#log("info", "attention", `Attention preset "${name}" applied`);
     this.#publish();
+  }
+
+  /**
+   * Changes image-quality limits from the next sample on. Nested objects (`lighting`, `image`)
+   * are merged one level deep.
+   *
+   * @param {Record<string, any>} patch
+   */
+  updateImageQualityConfig(patch) {
+    const current = this.#quality.config;
+    /** @type {Record<string, any>} */
+    const merged = { ...current };
+    for (const [key, value] of Object.entries(patch)) {
+      merged[key] =
+        value && typeof value === "object" && !Array.isArray(value)
+          ? { .../** @type {Record<string, any>} */ (current[key] ?? {}), ...value }
+          : value;
+    }
+    const config = validateImageQualityConfig(merged);
+    this.#quality.setConfig(config);
+    this.#log("info", "image-quality", `Image quality limits updated: ${JSON.stringify(patch)}`);
+    this.#publish();
+    return config;
   }
 
   /**
@@ -729,6 +764,7 @@ export class LabController {
         // Effective gates (they can be edited live). No reference or calibration embeddings.
         identity: snapshot.identity.config,
         attention: snapshot.attention.config,
+        imageQuality: snapshot.imageQuality.config,
       },
       deviceProfile: this.#deviceProfile,
       snapshot,
@@ -779,6 +815,7 @@ export class LabController {
       violations: this.#violations.getSnapshot(),
       identity: this.#identitySnapshot(),
       attention: this.#attention.getSnapshot(),
+      imageQuality: this.#quality.getSnapshot(),
       deviceProfile: this.#deviceProfile,
       log: [...this.#logEntries],
     };
@@ -814,6 +851,10 @@ export class LabController {
       id: slot.definition.id,
       scheduler: slot.scheduler,
       capture: slot.definition.capture,
+      // Image-quality engines measure the face region the face engine found last.
+      ...(slot.definition.kind === "image-quality"
+        ? { hints: () => ({ face: this.#faceHint }) }
+        : {}),
       client: {
         get isReady() {
           return slot.client?.isReady ?? false;
@@ -934,6 +975,13 @@ export class LabController {
           const sample = this.#attention.observe(event.result);
           if (sample) this.#violations.observeAttention(sample);
         }
+        if (event.engineId === this.#quality.faceSourceEngineId) {
+          this.#faceHint = faceHintFrom(event.result);
+        }
+        if (event.engineId === this.#quality.sourceEngineId) {
+          const sample = this.#quality.observe(event.result);
+          if (sample) this.#violations.observeQuality(sample);
+        }
       }
       const notice = {
         engineId: event.engineId,
@@ -980,6 +1028,8 @@ export class LabController {
         GAZE_AWAY_REPEATED: `${violation.glanceCount} looks away${toward} in the window`,
         HEAD_TURNED: `head up to ${violation.maxExcessDeg}° beyond the limit${toward}`,
         EYES_CLOSED: `eyes closed, blink score up to ${violation.maxClosure}`,
+        LIGHTING_ISSUE: `lighting: ${(violation.reasons ?? []).join(", ")}`,
+        LOW_IMAGE_QUALITY: `image: ${(violation.reasons ?? []).join(", ")}`,
       };
       const condition = conditions[violation.type] ?? `${violation.maxFaceCount} faces`;
       this.#log(
@@ -1190,4 +1240,25 @@ export class LabController {
 /** @param {number | null | undefined} value */
 function formatMs(value) {
   return Number.isFinite(value) ? `${/** @type {number} */ (value).toFixed(1)} ms` : "n/a";
+}
+
+/**
+ * The primary face of a face-engine result as a hint for image-quality engines: its box
+ * (normalized to the frame) and the frame's capture time. `box` is null when the result had no
+ * face; null when the result has no FACE_COUNT.
+ *
+ * @param {import('../engines/EngineContract.js').DetectionResult} result
+ * @returns {import('../engines/quality/ImageQualityEngine.js').FaceHint | null}
+ */
+export function faceHintFrom(result) {
+  const count = result.observations.find((o) => o.type === "FACE_COUNT");
+  if (typeof count?.value !== "number") return null;
+  const faces = result.observations.filter((o) => o.type === "FACE");
+  const primary = faces.find((o) => o.metadata?.primary === true) ?? faces[0];
+  const box = /** @type {any} */ (primary?.metadata)?.box ?? null;
+  return {
+    box: box ? { ...box } : null,
+    at: result.frameCaptureTime,
+    sourceEngineId: result.engine,
+  };
 }

@@ -46,7 +46,18 @@ function describeMeasure(violation) {
   if (violation.maxClosure !== null && violation.maxClosure !== undefined) {
     return `blink ${formatNumber(violation.maxClosure, 2)}`;
   }
+  if (violation.reasons) return violation.reasons.join(", ") || "—";
   return `${violation.maxFaceCount} faces`;
+}
+
+/**
+ * Image problems present when a violation of another rule started.
+ * @param {import('../../pipeline/ViolationEngine.js').Violation} violation
+ */
+function imageNote(violation) {
+  return violation.imageIssues && violation.imageIssues.length > 0
+    ? `image: ${violation.imageIssues.join(", ")}`
+    : "";
 }
 
 /**
@@ -303,7 +314,12 @@ export function ViolationsPanel() {
                 <td className="font-monospace">{formatClock(violation.startedAt)}</td>
                 <td>{seconds(violation.durationMs)}</td>
                 <td>{violation.frames}</td>
-                <td>{describeMeasure(violation)}</td>
+                <td>
+                  {describeMeasure(violation)}
+                  {imageNote(violation) && (
+                    <div className="small text-warning-emphasis">{imageNote(violation)}</div>
+                  )}
+                </td>
                 <td>
                   {violation.status === "active" ? "active" : `ended (${violation.endReason})`}
                 </td>

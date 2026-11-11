@@ -287,7 +287,9 @@ describe("FaceVerificationEngine initialization", () => {
     });
     expect(fp32.engine.getStatus().model.components[1]).not.toHaveProperty("prunedGraphInputs");
     expect(fp32.runtime.createSession.mock.calls[1][2].foldWeightDequantization).toBe(false);
-  });
+    // Building and parsing a 10 MB synthetic model can exceed the default 5 s when the other
+    // test files run in parallel.
+  }, 20_000);
 
   it("skips the warm-up when disabled", async () => {
     const { engine, sessions } = await createEngine({ warmup: false });

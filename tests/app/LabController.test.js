@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LabController } from "../../src/app/LabController.js";
+import { LabController, faceHintFrom } from "../../src/app/LabController.js";
 import { DEFAULT_LAB_CONFIG } from "../../src/config/detection.config.js";
 import {
   FakeEngine,
@@ -181,6 +181,7 @@ const FAKE_LOADERS = {
   diagnostic: async () => FakeEngine,
   "face-landmarker": async () => FakeEngine,
   "face-verifier": async () => FakeEngine,
+  "image-quality": async () => FakeEngine,
 };
 
 function createController(camera, options = {}) {
@@ -318,9 +319,11 @@ describe("LabController engines", () => {
     expect(report.config.engines.map((engine) => engine.id)).toEqual([
       "face-landmarker",
       "face-verifier",
+      "image-quality",
       "probe-high",
       "probe-low",
     ]);
+    expect(report.config.imageQuality).toMatchObject({ sourceEngineId: "image-quality" });
     expect(JSON.parse(JSON.stringify(report))).toEqual(report);
   });
 });
@@ -340,6 +343,7 @@ describe("LabController violations", () => {
     const controller = createController(createFakeCamera(), { createWorker: factory });
     // Only the violation source engine runs, so frames and captures can be counted exactly.
     await controller.setEngineEnabled("face-verifier", false);
+    await controller.setEngineEnabled("image-quality", false);
     const results = [];
     controller.subscribeResults((notice) => results.push(notice));
     const video = createFakeVideo();
@@ -398,6 +402,7 @@ describe("LabController attention", () => {
     );
     const config = structuredClone(DEFAULT_LAB_CONFIG);
     config.engines.find((engine) => engine.id === "face-verifier").scheduler.enabled = false;
+    config.engines.find((engine) => engine.id === "image-quality").scheduler.enabled = false;
     config.attention.baseline = { learnMs: 1000, minSamples: 3 };
     config.violations.rules.GAZE_AWAY = { ...config.violations.rules.GAZE_AWAY, minDurationMs: 0 };
     const { factory } = createFakeWorkerFactory({
@@ -469,6 +474,145 @@ describe("LabController attention", () => {
   });
 });
 
+/** Face-landmarker stand-in: one face whose box is set per test. */
+class FakeBoxFaceEngine extends FakeEngine {
+  static box = { x: 0.3, y: 0.2, width: 0.25, height: 0.5 };
+
+  async onDetect(_frame, _meta, timer) {
+    timer.start("inference");
+    return {
+      observations: [
+        { type: "FACE_COUNT", detected: true, value: 1 },
+        {
+          type: "FACE",
+          detected: true,
+          value: 0,
+          metadata: { box: FakeBoxFaceEngine.box, truncated: false, primary: true },
+        },
+      ],
+    };
+  }
+}
+
+/** Image-quality stand-in: reports a dark face when it got a face hint, records the hints. */
+class FakeQualityEngine extends FakeEngine {
+  static hints = [];
+
+  async onDetect(_frame, meta, timer) {
+    timer.start("inference");
+    FakeQualityEngine.hints.push(meta.hints ?? null);
+    const box = meta.hints?.face?.box;
+    return {
+      observations: [
+        {
+          type: "FRAME_QUALITY",
+          detected: true,
+          metadata: { meanLuma: 40, stdLuma: 20, sourceWidth: 1280 },
+        },
+        box
+          ? {
+              type: "FACE_QUALITY",
+              detected: true,
+              metadata: {
+                meanLuma: 30,
+                stdLuma: 15,
+                darkFraction: 0.2,
+                brightFraction: 0,
+                backgroundMeanLuma: 40,
+                sharpness: 0.2,
+                faceWidthPx: box.width * 1280,
+                faceWidthRatio: box.width,
+              },
+            }
+          : { type: "FACE_QUALITY", detected: false, metadata: { reason: "no face hint" } },
+      ],
+    };
+  }
+}
+
+describe("LabController image quality", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeQualityEngine.hints = [];
+  });
+
+  it("passes the face engine's latest face box to the image-quality engine and assesses its result", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => createFakeFrame()),
+    );
+    const config = structuredClone(DEFAULT_LAB_CONFIG);
+    config.engines.find((engine) => engine.id === "face-verifier").scheduler.enabled = false;
+    const quality = config.engines.find((engine) => engine.id === "image-quality");
+    quality.scheduler = { ...quality.scheduler, targetFps: 5, yieldToHigherPriority: false };
+    const { factory } = createFakeWorkerFactory({
+      ...FAKE_LOADERS,
+      "face-landmarker": async () => FakeBoxFaceEngine,
+      "image-quality": async () => FakeQualityEngine,
+    });
+    const controller = createController(createFakeCamera(), { createWorker: factory, config });
+    const results = [];
+    controller.subscribeResults((notice) => results.push(notice));
+    const video = createFakeVideo();
+    await controller.startCamera(video);
+    controller.startDetection();
+    for (let n = 0; n < 3; n += 1) {
+      await flush(220);
+      video.deliverFrame();
+    }
+    await vi.waitFor(() =>
+      expect(results.filter((r) => r.engineId === "image-quality").length).toBeGreaterThanOrEqual(
+        2,
+      ),
+    );
+    // The first quality frame may go out before any face result; later ones carry the box.
+    const withFace = FakeQualityEngine.hints.filter((hint) => hint?.face?.box);
+    expect(withFace.length).toBeGreaterThan(0);
+    expect(withFace[0].face).toMatchObject({
+      box: FakeBoxFaceEngine.box,
+      sourceEngineId: "face-landmarker",
+      at: expect.any(Number),
+    });
+    const snapshot = controller.buildSnapshot();
+    expect(snapshot.imageQuality.last.lighting).toMatchObject({
+      state: "issue",
+      reasons: ["dark"],
+    });
+    expect(snapshot.violations.qualityFramesEvaluated).toBeGreaterThan(0);
+  });
+});
+
+describe("faceHintFrom", () => {
+  it("takes the primary face's box and the frame time; null box without a face", () => {
+    const result = (observations) => ({
+      engine: "face-landmarker",
+      frameCaptureTime: 42,
+      observations,
+    });
+    const box = { x: 0.1, y: 0.1, width: 0.2, height: 0.3 };
+    expect(
+      faceHintFrom(
+        result([
+          { type: "FACE_COUNT", detected: true, value: 2 },
+          {
+            type: "FACE",
+            detected: true,
+            value: 0,
+            metadata: { box: { x: 0, y: 0, width: 0.1, height: 0.1 }, primary: false },
+          },
+          { type: "FACE", detected: true, value: 1, metadata: { box, primary: true } },
+        ]),
+      ),
+    ).toEqual({ box, at: 42, sourceEngineId: "face-landmarker" });
+    expect(faceHintFrom(result([{ type: "FACE_COUNT", detected: false, value: 0 }]))).toEqual({
+      box: null,
+      at: 42,
+      sourceEngineId: "face-landmarker",
+    });
+    expect(faceHintFrom(result([]))).toBeNull();
+  });
+});
+
 describe("LabController identity", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -482,6 +626,7 @@ describe("LabController identity", () => {
     );
     const config = structuredClone(DEFAULT_LAB_CONFIG);
     config.engines.find((engine) => engine.id === "face-landmarker").scheduler.enabled = false;
+    config.engines.find((engine) => engine.id === "image-quality").scheduler.enabled = false;
     const verifier = config.engines.find((engine) => engine.id === "face-verifier");
     verifier.scheduler = { ...verifier.scheduler, targetFps: 10, yieldToHigherPriority: false };
     config.identity.enrollment = { ...config.identity.enrollment, samples: 2, minIntervalMs: 0 };

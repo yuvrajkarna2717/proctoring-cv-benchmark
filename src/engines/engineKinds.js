@@ -1,5 +1,6 @@
 import { DiagnosticConfigSchema } from "./diagnostic/diagnosticConfig.js";
 import { FaceLandmarkerConfigSchema } from "./face/faceLandmarkerConfig.js";
+import { ImageQualityConfigSchema } from "./quality/imageQualityConfig.js";
 import { FaceVerifierConfigSchema } from "./verification/faceVerifierConfig.js";
 
 /**
@@ -14,6 +15,7 @@ export const ENGINE_CONFIG_SCHEMAS = Object.freeze({
   diagnostic: DiagnosticConfigSchema,
   "face-landmarker": FaceLandmarkerConfigSchema,
   "face-verifier": FaceVerifierConfigSchema,
+  "image-quality": ImageQualityConfigSchema,
 });
 
 /** @typedef {keyof typeof ENGINE_CONFIG_SCHEMAS} EngineKind */

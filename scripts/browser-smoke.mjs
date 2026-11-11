@@ -1,6 +1,7 @@
 /**
  * Headless browser smoke test of the lab (pipeline from Phase 1, face engine and violation rules
- * from Phase 2, face verification from Phase 3, attention from Phase 4).
+ * from Phase 2, face verification from Phase 3, attention from Phase 4, image quality from
+ * Phase 5).
  *
  * Builds the app, serves the production build with `vite preview` (same COOP/COEP headers and
  * CSP as a deployment), opens it in an installed Chromium-based browser with Chrome's synthetic
@@ -17,6 +18,9 @@
  * - Q (runs after L): attention without a face: every frame undecided, no baseline, no attention
  *   violation; the calibration overlay appears and the calibration fails with its reason; a
  *   strictness preset chosen in the UI applies.
+ * - R (after Q): image-quality engine next to the face landmarker: frame statistics from real
+ *   pixels with a timed read-back, the face region not measured without a face, no
+ *   LOW_IMAGE_QUALITY, the Image quality panel rendered.
  * - M, N: face verifier (YuNet + SFace, ONNX Runtime Web) on the WASM provider, then switched live
  *   to WebGPU. With no face on the synthetic camera, the centre-crop diagnostic runs both models.
  * - O: identity storage, enrollment refusing frames without a face, no FACE_MISMATCH without a
@@ -52,7 +56,7 @@ import { DEFAULT_FACE_VERIFIER_CONFIG } from "../src/engines/verification/faceVe
 import { ORT_WASM_DIR } from "../src/engines/verification/ortAssets.js";
 import { ensureModels } from "./fetch-models.mjs";
 
-const PHASE = 4;
+const PHASE = 5;
 const IDENTITY_DATABASE = "proctoring-cv-lab-identity";
 const FACE_MODEL = MODEL_ASSETS["mp-face-landmarker"];
 /** The verifier's default SFace variant, which the smoke run loads. */
@@ -387,11 +391,12 @@ async function main() {
     // Consent and camera start through the real UI.
     await page.locator("#consent-checkbox").check();
     await page.getByRole("button", { name: "Continue" }).click();
-    // A–H measure the pipeline with the diagnostic probe, as in Phase 1. The face engines (on by
-    // default) are loaded later, one at a time: the face landmarker for I–L, the face verifier
-    // for M–O.
+    // A–H measure the pipeline with the diagnostic probe, as in Phase 1. The face engines and the
+    // image-quality engine (on by default) are loaded later: the face landmarker for I–L and Q,
+    // the image-quality engine with it for R, the face verifier for M–O.
     await page.locator("#engine-enabled-face-landmarker").uncheck();
     await page.locator("#engine-enabled-face-verifier").uncheck();
+    await page.locator("#engine-enabled-image-quality").uncheck();
     await page.locator("#engine-enabled-probe-high").check();
     // Start the camera. Chromium's synthetic camera has occasionally ended its track right after
     // getUserMedia; the app then reports TRACK_ENDED. Retry once and keep the reason in the report.
@@ -1212,10 +1217,83 @@ async function main() {
       attentionViolations,
     );
 
+    // R: image quality (model-free, 1 FPS) next to the face landmarker. The synthetic camera
+    // shows no face, so the face region is never measured: lighting and image stay undecided
+    // unless the whole frame is too dark or bright. The frame statistics must come from real
+    // pixels, and the read-back cost is recorded.
+    await page.locator("#engine-enabled-image-quality").check();
+    await waitForEngineReady("image-quality");
+    await page.getByRole("button", { name: "Start detection" }).click();
+    await waitForDetection(true);
+    await page.waitForTimeout(5000);
+    const rLive = await snapshot();
+    assertCameraActive(rLive, "R image quality");
+    await page.getByRole("button", { name: "Stop detection" }).click();
+    await waitForDetection(false);
+    const rQuality = engine(rLive, "image-quality");
+    const rObservations = rQuality.lastResult?.observations ?? [];
+    const rFrame = rObservations.find((o) => o.type === "FRAME_QUALITY");
+    const rFace = rObservations.find((o) => o.type === "FACE_QUALITY");
+    const rPanel = await page
+      .getByTestId("quality-lighting")
+      .textContent({ timeout: 3000 })
+      .catch(() => null);
+    const rEnd = await snapshot();
+    const qualityViolations = rEnd.violations.history.filter((v) =>
+      ["LIGHTING_ISSUE", "LOW_IMAGE_QUALITY"].includes(v.type),
+    );
+    const rNoFace = rEnd.violations.history.findLast((v) => v.type === "NO_FACE");
+    scenarios.R_imageQuality = {
+      quality: engineSummary(rQuality),
+      readMs: rQuality.metrics.breakdownMs?.readMs ?? null,
+      frame: rFrame?.metadata ?? null,
+      face: rFace ?? null,
+      assessment: rLive.imageQuality.last,
+      stats: rEnd.imageQuality.stats,
+      qualityViolations,
+      noFaceImageIssues: rNoFace?.imageIssues ?? null,
+      panel: rPanel,
+    };
+    check(
+      "R: image-quality engine ready, results without failures at about 1 FPS",
+      rQuality.client.state === "ready" &&
+        rQuality.metrics.counters.results >= 3 &&
+        rQuality.metrics.counters.failures === 0,
+      rQuality.metrics.counters,
+    );
+    check(
+      "R: frame statistics from real pixels (mean luma > 0, contrast > 0), one timed read per frame",
+      rFrame?.metadata.meanLuma > 0 &&
+        rFrame?.metadata.stdLuma > 0 &&
+        rFrame?.metadata.readWidth === Math.min(640, track.settings.width) &&
+        Number.isFinite(rQuality.metrics.breakdownMs?.readMs?.median),
+      { frame: rFrame?.metadata, readMs: rQuality.metrics.breakdownMs?.readMs },
+    );
+    check(
+      "R: without a face the face region is not measured and the assessment says why",
+      rFace?.detected === false &&
+        /no face/.test(rFace?.metadata?.reason ?? "") &&
+        rLive.imageQuality.last?.image.state !== "ok",
+      { face: rFace, assessment: rLive.imageQuality.last },
+    );
+    // NO_FACE's imageIssues is recorded, not checked: it is null when NO_FACE confirmed before
+    // the first image-quality sample of the run.
+    check(
+      "R: no LOW_IMAGE_QUALITY without a face (face checks undecided)",
+      qualityViolations.every((v) => v.type !== "LOW_IMAGE_QUALITY"),
+      { qualityViolations, noFaceImageIssues: rNoFace?.imageIssues },
+    );
+    check(
+      "R: Image quality panel shows the lighting state",
+      /undecided|issue|ok/.test(rPanel ?? ""),
+      rPanel,
+    );
+    await page.locator("#engine-enabled-image-quality").uncheck();
+
     // M: face verifier (YuNet + SFace on ONNX Runtime Web) on the WASM provider, running alone.
     // The synthetic camera shows no face, so the centre-crop diagnostic embeds a square of every
     // frame: both models run on every frame, but nothing is aligned to a face. Detection was
-    // stopped at the end of Q.
+    // stopped at the end of R.
     await waitForDetection(false);
     await page.locator("#engine-enabled-face-landmarker").uncheck();
     await waitFor(

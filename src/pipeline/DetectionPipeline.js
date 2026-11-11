@@ -14,6 +14,9 @@ const ABORT_CODES = new Set(["RESTARTED", "DISPOSED"]);
  * @property {PipelineEngine} client usually a WorkerEngineClient
  * @property {import('../capture/FrameScheduler.js').FrameScheduler} scheduler
  * @property {{ maxInputWidth: number | null }} capture
+ * @property {(() => Record<string, unknown> | null)=} hints called at dispatch; the result
+ *   travels with the frame as `meta.hints` (for example the latest face box for the
+ *   image-quality engine)
  *
  * @typedef {Object} FrameSource
  * @property {(listener: (tick: import('../capture/VideoFrameSource.js').FrameTick) => void) => () => void} subscribe
@@ -169,6 +172,7 @@ export class DetectionPipeline {
         height: captured.height,
         maxFrameAgeMs: scheduler.config.maxFrameAgeMs,
         dispatchTime: this.#now(),
+        ...(entry.hints ? { hints: entry.hints() } : {}),
       };
       const owned = bitmap;
       bitmap = null; // ownership passes to the client, which transfers or closes it

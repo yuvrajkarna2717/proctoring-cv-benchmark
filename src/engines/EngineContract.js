@@ -47,6 +47,9 @@
  * @property {number} width width of the transferred image (after optional downscaling)
  * @property {number} height height of the transferred image
  * @property {number} maxFrameAgeMs frames older than this are dropped before inference
+ * @property {Record<string, unknown> | null=} hints data from other engines that the main
+ *   thread passes along (structured-cloneable), e.g. `{ face: { box, at, sourceEngineId } }`
+ *   for the image-quality engine
  *
  * @typedef {Object} StageTimings
  * @property {number} preprocessMs

@@ -104,7 +104,8 @@ export const MonitorConfigSchema = z
  * Violation types. NO_FACE and MULTIPLE_FACES are evaluated from FACE_COUNT observations of the
  * violations source engine; FACE_MISMATCH from identity comparisons (see IdentityConfigSchema);
  * GAZE_AWAY, GAZE_AWAY_REPEATED, HEAD_TURNED, and EYES_CLOSED from attention samples (see
- * AttentionConfigSchema).
+ * AttentionConfigSchema); LIGHTING_ISSUE and LOW_IMAGE_QUALITY from image-quality samples (see
+ * ImageQualityLabConfigSchema).
  */
 export const VIOLATION_TYPES = /** @type {const} */ ([
   "NO_FACE",
@@ -114,6 +115,8 @@ export const VIOLATION_TYPES = /** @type {const} */ ([
   "GAZE_AWAY_REPEATED",
   "HEAD_TURNED",
   "EYES_CLOSED",
+  "LIGHTING_ISSUE",
+  "LOW_IMAGE_QUALITY",
 ]);
 
 /** @typedef {typeof VIOLATION_TYPES[number]} ViolationType */
@@ -186,6 +189,19 @@ export const GazeRepeatedRuleSchema = z
   })
   .strict();
 
+/**
+ * LIGHTING_ISSUE, LOW_IMAGE_QUALITY: evaluated from image-quality samples (1 FPS by default).
+ * Their own gap limit, because the image-quality engine samples less often than the face
+ * engine and yields to it.
+ */
+export const QualityRuleSchema = z
+  .object({
+    ...violationRuleFields,
+    /** Samples further apart than this end an active violation with "data-gap". */
+    maxGapMs: z.number().int().min(100).max(600_000),
+  })
+  .strict();
+
 export const VIOLATION_RULE_SCHEMAS = Object.freeze({
   NO_FACE: NoFaceRuleSchema,
   MULTIPLE_FACES: MultipleFacesRuleSchema,
@@ -194,6 +210,8 @@ export const VIOLATION_RULE_SCHEMAS = Object.freeze({
   GAZE_AWAY_REPEATED: GazeRepeatedRuleSchema,
   HEAD_TURNED: AttentionRuleSchema,
   EYES_CLOSED: AttentionRuleSchema,
+  LIGHTING_ISSUE: QualityRuleSchema,
+  LOW_IMAGE_QUALITY: QualityRuleSchema,
 });
 
 export const ViolationsConfigSchema = z
@@ -217,6 +235,8 @@ export const ViolationsConfigSchema = z
         GAZE_AWAY_REPEATED: GazeRepeatedRuleSchema,
         HEAD_TURNED: AttentionRuleSchema,
         EYES_CLOSED: AttentionRuleSchema,
+        LIGHTING_ISSUE: QualityRuleSchema,
+        LOW_IMAGE_QUALITY: QualityRuleSchema,
       })
       .strict(),
   })
@@ -226,7 +246,8 @@ export const ViolationsConfigSchema = z
 /**
  * @typedef {z.infer<typeof NoFaceRuleSchema> & { minFaces?: number, similarityThreshold?: number,
  *   escalateAfterMs?: number | null, escalatedSeverity?: 'low' | 'medium' | 'high',
- *   windowMs?: number, minGlances?: number, minGlanceMs?: number, sameDirection?: boolean }} ViolationRuleConfig
+ *   windowMs?: number, minGlances?: number, minGlanceMs?: number, sameDirection?: boolean,
+ *   maxGapMs?: number }} ViolationRuleConfig
  */
 
 /** Strictness presets of the attention rules; "custom" after any manual change. */
@@ -324,6 +345,70 @@ export const AttentionConfigSchema = z
 /** @typedef {z.infer<typeof AttentionConfigSchema>} AttentionConfig */
 
 /**
+ * Limits for the image-quality assessment (src/quality/qualityModel.js). Luma is Rec. 709 of
+ * gamma-encoded pixels, 0–255; sharpness is the contrast-normalized Laplacian variance of the
+ * face crop at the engine's `faceCropWidth` (112 px). Every value is a starting point.
+ */
+export const ImageQualityLabConfigSchema = z
+  .object({
+    /** Engine instance whose FRAME_QUALITY and FACE_QUALITY observations are assessed. */
+    sourceEngineId: z.string().min(1),
+    /** Engine instance whose latest face box is passed to the image-quality engine. */
+    faceSourceEngineId: z.string().min(1),
+    lighting: z
+      .object({
+        /** Mean face luma below this is dark (the identity enrollment gate uses 60). */
+        minFaceLuma: z.number().min(0).max(255),
+        /** Mean face luma above this is too bright (the enrollment gate uses 200). */
+        maxFaceLuma: z.number().min(0).max(255),
+        /** Share of crushed face pixels above which the face is dark. */
+        maxFaceDarkFraction: z.number().min(0).max(1),
+        /** Share of blown-out face pixels above which the face is too bright. */
+        maxFaceBrightFraction: z.number().min(0).max(1),
+        /** RMS contrast of the face below this is flat (fog, strong diffuse glare). */
+        minFaceContrast: z.number().min(0).max(128),
+        /** Backlit: face mean below this fraction of the background mean ... */
+        backlitRatio: z.number().min(0).max(1),
+        /** ... and the background at least this bright (a window or lamp behind the person). */
+        minBacklitBackgroundLuma: z.number().min(0).max(255),
+        /** Without a face: frame mean below this is dark (camera covered, unlit room). */
+        minFrameLuma: z.number().min(0).max(255),
+        /** Without a face: frame mean above this is blown out. */
+        maxFrameLuma: z.number().min(0).max(255),
+      })
+      .strict(),
+    image: z
+      .object({
+        /**
+         * Contrast-normalized sharpness of the 112 px face crop (Laplacian variance / luma
+         * variance) below this is blurry. On a portrait: 0.08 (frame read at 640 px) to 0.28
+         * (1280 px) sharp, 0.0017–0.0018 blurred (5 px Gaussian).
+         */
+        minFaceSharpness: z.number().min(0).max(100),
+        /** Face narrower than this in camera pixels is too small for the face models. */
+        minFaceWidthPx: z.number().min(0).max(8192),
+        /** Face narrower than this fraction of the frame width is too far away. */
+        minFaceWidthRatio: z.number().min(0).max(1),
+        /** Camera frames narrower than this are low resolution. */
+        minSourceWidth: z.number().int().min(0).max(8192),
+      })
+      .strict(),
+    /** Recent samples kept for the live chart. */
+    historySize: z.number().int().min(10).max(5000),
+  })
+  .strict()
+  .refine((c) => c.lighting.minFaceLuma <= c.lighting.maxFaceLuma, {
+    message: "minFaceLuma must not exceed maxFaceLuma",
+    path: ["lighting", "maxFaceLuma"],
+  })
+  .refine((c) => c.lighting.minFrameLuma <= c.lighting.maxFrameLuma, {
+    message: "minFrameLuma must not exceed maxFrameLuma",
+    path: ["lighting", "maxFrameLuma"],
+  });
+
+/** @typedef {z.infer<typeof ImageQualityLabConfigSchema>} ImageQualityLabConfig */
+
+/**
  * Requirements a face embedding must meet before it is used. Every value is a starting point;
  * the Identity panel shows the measured value of each check next to its limit.
  */
@@ -407,6 +492,7 @@ export const LabConfigSchema = z
     violations: ViolationsConfigSchema,
     identity: IdentityConfigSchema,
     attention: AttentionConfigSchema,
+    imageQuality: ImageQualityLabConfigSchema,
   })
   .strict()
   .superRefine((config, context) => {
@@ -425,6 +511,8 @@ export const LabConfigSchema = z
       ["violations", "sourceEngineId"],
       ["identity", "sourceEngineId"],
       ["attention", "sourceEngineId"],
+      ["imageQuality", "sourceEngineId"],
+      ["imageQuality", "faceSourceEngineId"],
     ]) {
       const id = /** @type {string} */ (
         /** @type {Record<string, any>} */ (config)[path[0]][path[1]]
@@ -479,4 +567,12 @@ export function validateQualityGate(input, label = "quality gate") {
  */
 export function validateAttentionConfig(input) {
   return parseConfig(AttentionConfigSchema, input, "attention configuration");
+}
+
+/**
+ * @param {unknown} input
+ * @returns {ImageQualityLabConfig}
+ */
+export function validateImageQualityConfig(input) {
+  return parseConfig(ImageQualityLabConfigSchema, input, "image quality configuration");
 }

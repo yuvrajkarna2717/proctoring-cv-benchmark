@@ -13,4 +13,6 @@ export const WORKER_FACTORIES = Object.freeze({
     new Worker(new URL("./face.worker.js", import.meta.url), { type: "module" }),
   "face-verifier": () =>
     new Worker(new URL("./verification.worker.js", import.meta.url), { type: "module" }),
+  "image-quality": () =>
+    new Worker(new URL("./quality.worker.js", import.meta.url), { type: "module" }),
 });

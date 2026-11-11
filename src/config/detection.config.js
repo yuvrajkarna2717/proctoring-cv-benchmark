@@ -1,4 +1,5 @@
 import { DEFAULT_FACE_LANDMARKER_CONFIG } from "../engines/face/faceLandmarkerConfig.js";
+import { DEFAULT_IMAGE_QUALITY_CONFIG } from "../engines/quality/imageQualityConfig.js";
 import { DEFAULT_FACE_VERIFIER_CONFIG } from "../engines/verification/faceVerifierConfig.js";
 import { validateLabConfig } from "./schema.js";
 
@@ -12,6 +13,8 @@ import { validateLabConfig } from "./schema.js";
  *   rules.
  * - `face-verifier`: YuNet + SFace on ONNX Runtime Web at 2 FPS, lower priority, yielding to
  *   the face landmarker. Its embeddings feed enrollment, calibration, and identity checks.
+ * - `image-quality`: model-free lighting and sharpness statistics at 1 FPS, priority 3, using
+ *   the face landmarker's latest face box. Feeds LIGHTING_ISSUE and LOW_IMAGE_QUALITY.
  * - `probe-high`, `probe-low`: model-free diagnostic probes from Phase 1, disabled by default.
  *   `probe-high` measures pipeline overhead (5 FPS, no work); `probe-low` emulates a slow
  *   object detector (1 FPS, low priority, 250 ms of blocking work per frame, 640 px input).
@@ -68,6 +71,26 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
         // Loads a 28.7 MB WASM binary and 10.9 MB of models (38.9 MB with fp32 SFace); WebGPU
         // compiles shaders on top.
         initTimeoutMs: 60_000,
+        requestTimeoutMs: 10_000,
+      },
+      {
+        id: "image-quality",
+        kind: "image-quality",
+        label: "Image quality",
+        description:
+          "Lighting, contrast, and sharpness of the frame and of the face region (face box from the face landmarker), 1 FPS. Feeds LIGHTING_ISSUE and LOW_IMAGE_QUALITY.",
+        scheduler: {
+          enabled: true,
+          targetFps: 1,
+          priority: 3,
+          maxFrameAgeMs: 1500,
+          yieldToHigherPriority: true,
+          maxYieldMs: 500,
+        },
+        // Full resolution: the face is cropped from the frame as the camera delivered it.
+        capture: { maxInputWidth: null },
+        engineConfig: { ...DEFAULT_IMAGE_QUALITY_CONFIG },
+        initTimeoutMs: 30_000,
         requestTimeoutMs: 10_000,
       },
       {
@@ -185,6 +208,24 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
           escalateAfterMs: 10_000,
           escalatedSeverity: "medium",
         },
+        // Image quality (Phase 5) at 1 FPS: an environment problem, not misconduct, so severity
+        // low and long durations; momentary blur from movement or an exposure change passes.
+        LIGHTING_ISSUE: {
+          enabled: true,
+          minDurationMs: 5000,
+          clearAfterMs: 3000,
+          cooldownMs: 30_000,
+          severity: "low",
+          maxGapMs: 5000,
+        },
+        LOW_IMAGE_QUALITY: {
+          enabled: true,
+          minDurationMs: 5000,
+          clearAfterMs: 3000,
+          cooldownMs: 30_000,
+          severity: "low",
+          maxGapMs: 5000,
+        },
       },
     },
     // Head pose, gaze, and eye state from the face landmarker (Phase 4). "balanced" preset.
@@ -213,6 +254,30 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
         insetRatio: 0.06,
       },
       trailSize: 150,
+    },
+    // Limits for LIGHTING_ISSUE and LOW_IMAGE_QUALITY (Phase 5). Face luma limits match the
+    // identity enrollment gate (60–200), so "lighting ok" means good enough to enroll.
+    imageQuality: {
+      sourceEngineId: "image-quality",
+      faceSourceEngineId: "face-landmarker",
+      lighting: {
+        minFaceLuma: 60,
+        maxFaceLuma: 200,
+        maxFaceDarkFraction: 0.3,
+        maxFaceBrightFraction: 0.15,
+        minFaceContrast: 10,
+        backlitRatio: 0.5,
+        minBacklitBackgroundLuma: 150,
+        minFrameLuma: 35,
+        maxFrameLuma: 235,
+      },
+      image: {
+        minFaceSharpness: 0.01,
+        minFaceWidthPx: 80,
+        minFaceWidthRatio: 0.08,
+        minSourceWidth: 640,
+      },
+      historySize: 120,
     },
     // Starting values. The Identity panel shows each measured value next to its limit.
     identity: {
