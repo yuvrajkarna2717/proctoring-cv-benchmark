@@ -1,0 +1,46 @@
+{
+  "name": "proctoring-cv-benchmark",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser-only computer vision lab for evaluating open-source proctoring models (research POC).",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "node scripts/browser-smoke.mjs",
+    "fetch-models": "node scripts/fetch-models.mjs",
+    "verify": "npm run lint && npm run format:check && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.2.2",
+    "bootstrap": "^5.3.8",
+    "onnxruntime-web": "1.31.1",
+    "react": "^19.3.1",
+    "react-bootstrap": "^2.10.10",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
+    "playwright-core": "^1.65.0",
+    "prettier": "^3.9.10",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,901 @@
+{
+  "tool": "scripts/browser-smoke.mjs",
+  "phase": 2,
+  "startedAt": "2026-11-10T09:16:57.404Z",
+  "finishedAt": "2026-11-10T09:17:47.171Z",
+  "browser": {
+    "channel": "chrome",
+    "version": "156.0.8078.80",
+    "headless": true
+  },
+  "server": "vite preview of the production build",
+  "host": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12450H",
+    "logicalCpus": 12,
+    "platform": "win32 10.0.26200"
+  },
+  "measurementWindowMs": 8000,
+  "passed": false,
+  "functionalChecks": {
+    "passed": 16,
+    "total": 17
+  },
+  "performanceChecks": {
+    "passed": 5,
+    "total": 5
+  },
+  "checks": [
+    {
+      "name": "page is cross-origin isolated (COOP/COEP)",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "camera started (at most one retry)",
+      "kind": "functional",
+      "passed": true,
+      "detail": [
+        "ok"
+      ]
+    },
+    {
+      "name": "camera track is live",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "width": 1280,
+        "height": 720,
+        "frameRate": 20
+      }
+    },
+    {
+      "name": "A: frame clock uses requestVideoFrameCallback",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "A: no inference failures",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "A: only frames dispatched in the window are recorded (settled <= dispatched)",
+      "kind": "functional",
+      "passed": true,
+      "detail": [
+        {
+          "id": "probe-high",
+          "dispatched": 41,
+          "settled": 41
+        }
+      ]
+    },
+    {
+      "name": "A: worker received real pixels (FRAME_PROBE mean luma > 0)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 105.68
+    },
+    {
+      "name": "A: average FPS within 10% of the 5 FPS target",
+      "kind": "performance",
+      "passed": true,
+      "detail": 5.02
+    },
+    {
+      "name": "B: no backlog (dispatched - settled <= 1)",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "dispatched": 17,
+        "settled": 16
+      }
+    },
+    {
+      "name": "B: skipped sampling slots are counted",
+      "kind": "functional",
+      "passed": true,
+      "detail": 16
+    },
+    {
+      "name": "B: rate falls below target instead of queueing (average FPS < 2.5)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 2.01
+    },
+    {
+      "name": "B: frames stay fresh (frame age at worker start p95 < 150 ms)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 3.01
+    },
+    {
+      "name": "B: preview frame callbacks >= 90% of baseline while the worker is saturated",
+      "kind": "performance",
+      "passed": true,
+      "detail": {
+        "baseline": 20.07,
+        "underLoad": 20.45
+      }
+    },
+    {
+      "name": "B: main thread responsive (event-loop lag p95 < 50 ms)",
+      "kind": "performance",
+      "passed": true,
+      "detail": 5.77
+    },
+    {
+      "name": "C: low-priority engine is not starved (results > 0)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 8
+    },
+    {
+      "name": "C: low-priority input downscaled to 640 px during capture",
+      "kind": "functional",
+      "passed": true,
+      "detail": 640
+    },
+    {
+      "name": "C: no inference failures",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "C: only frames dispatched in the window are recorded (settled <= dispatched)",
+      "kind": "functional",
+      "passed": true,
+      "detail": [
+        {
+          "id": "probe-high",
+          "dispatched": 41,
+          "settled": 40
+        },
+        {
+          "id": "probe-low",
+          "dispatched": 8,
+          "settled": 8
+        }
+      ]
+    },
+    {
+      "name": "C: memory measured including workers",
+      "kind": "functional",
+      "passed": true,
+      "detail": "measureUserAgentSpecificMemory"
+    },
+    {
+      "name": "C: high-priority average FPS within 10% of 5",
+      "kind": "performance",
+      "passed": true,
+      "detail": 5.01
+    },
+    {
+      "name": "C: low-priority average FPS within 25% of 1",
+      "kind": "performance",
+      "passed": true,
+      "detail": 1
+    },
+    {
+      "name": "smoke run completed without exceptions",
+      "kind": "functional",
+      "passed": false,
+      "detail": "Error: D failure injection: camera is error (TRACK_ENDED: The camera track ended unexpectedly)\n    at assertCameraActive (file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:346:13)\n    at measureWindow (file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:358:7)\n    at async main (file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:554:15)\n    at async file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:1181:1"
+    }
+  ],
+  "scenarios": {
+    "cameraStartAttempts": [
+      {
+        "attempt": 1,
+        "status": "active",
+        "error": null
+      }
+    ],
+    "camera": {
+      "label": "fake_device_0",
+      "settings": {
+        "aspectRatio": 1.7777777777777777,
+        "deviceId": "b133ce0793fe5e5df46986a081176ee69598f9ac7a9d27db2eb0a9a30f10e0fe",
+        "exposureMode": "manual",
+        "exposureTime": 50,
+        "focusDistance": 50,
+        "focusMode": "manual",
+        "frameRate": 20,
+        "groupId": "46edf3fad9e292a3efb8790af44b9e524890a8502a5256c3718b16e34968bfbf",
+        "height": 720,
+        "resizeMode": "none",
+        "width": 1280
+      }
+    },
+    "A_baseline": {
+      "machineCpuBusyPercent": 24.3,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 5,
+        "averageFps": 5.02,
+        "counters": {
+          "results": 41,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 41,
+          "completed": 41,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 33.72509765625,
+          "hostInitMs": 17.125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.22509765625,
+          "totalMs": 0.28515625,
+          "moduleLoadMs": 15.965087890625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 41,
+            "mean": 7.82,
+            "p50": 6.94,
+            "p95": 10.91,
+            "p99": 19.07,
+            "max": 23.34
+          },
+          "inference": {
+            "n": 41,
+            "mean": 0.05,
+            "p50": 0.01,
+            "p95": 0.24,
+            "p99": 0.56,
+            "max": 0.65
+          },
+          "capture": {
+            "n": 41,
+            "mean": 0.39,
+            "p50": 0.32,
+            "p95": 0.73,
+            "p99": 0.92,
+            "max": 0.96
+          },
+          "roundTrip": {
+            "n": 41,
+            "mean": 8.54,
+            "p50": 7.36,
+            "p95": 13.42,
+            "p99": 21.21,
+            "max": 25.58
+          },
+          "transport": {
+            "n": 41,
+            "mean": 0.72,
+            "p50": 0.43,
+            "p95": 2.64,
+            "p99": 4.19,
+            "max": 5.01
+          },
+          "queueDelay": {
+            "n": 41,
+            "mean": 0.22,
+            "p50": 0.19,
+            "p95": 0.38,
+            "p99": 0.45,
+            "max": 0.47
+          },
+          "frameAge": {
+            "n": 41,
+            "mean": 2.13,
+            "p50": 1.61,
+            "p95": 6.13,
+            "p99": 7.69,
+            "max": 8.36
+          },
+          "endToEnd": {
+            "n": 41,
+            "mean": 10.45,
+            "p50": 9.05,
+            "p95": 15.03,
+            "p99": 26.56,
+            "max": 33.47
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 105.68,
+          "metadata": {
+            "stdLuma": 27.35,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 161,
+        "frameTickRate": 20.08,
+        "frameCallbackFps": 20.07,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 161,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 163,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 81,
+          "p50": 0,
+          "p95": 6.98,
+          "max": 10.37
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "B_backpressure": {
+      "machineCpuBusyPercent": 27,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 2,
+        "averageFps": 2.01,
+        "counters": {
+          "results": 16,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 17,
+          "completed": 16,
+          "skippedBusy": 16,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 33.72509765625,
+          "hostInitMs": 17.125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.22509765625,
+          "totalMs": 0.28515625,
+          "moduleLoadMs": 15.965087890625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 16,
+            "mean": 457.4,
+            "p50": 457.2,
+            "p95": 460.13,
+            "p99": 460.43,
+            "max": 460.5
+          },
+          "inference": {
+            "n": 16,
+            "mean": 450.05,
+            "p50": 450.01,
+            "p95": 450.19,
+            "p99": 450.37,
+            "max": 450.41
+          },
+          "capture": {
+            "n": 16,
+            "mean": 0.39,
+            "p50": 0.32,
+            "p95": 0.71,
+            "p99": 0.84,
+            "max": 0.88
+          },
+          "roundTrip": {
+            "n": 16,
+            "mean": 457.81,
+            "p50": 457.55,
+            "p95": 460.67,
+            "p99": 460.93,
+            "max": 460.99
+          },
+          "transport": {
+            "n": 16,
+            "mean": 0.41,
+            "p50": 0.38,
+            "p95": 0.53,
+            "p99": 0.55,
+            "max": 0.55
+          },
+          "queueDelay": {
+            "n": 16,
+            "mean": 0.21,
+            "p50": 0.2,
+            "p95": 0.3,
+            "p99": 0.33,
+            "max": 0.34
+          },
+          "frameAge": {
+            "n": 16,
+            "mean": 1.84,
+            "p50": 1.54,
+            "p95": 3.01,
+            "p99": 5.2,
+            "max": 5.75
+          },
+          "endToEnd": {
+            "n": 16,
+            "mean": 459.44,
+            "p50": 459,
+            "p95": 462.71,
+            "p99": 464.06,
+            "max": 464.4
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 98.98,
+          "metadata": {
+            "stdLuma": 11.1,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 450
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 161,
+        "frameTickRate": 20.1,
+        "frameCallbackFps": 20.45,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 161,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 324,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 80,
+          "p50": 0,
+          "p95": 5.77,
+          "max": 13.33
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "C_twoEngines": {
+      "machineCpuBusyPercent": 21.1,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 5,
+        "averageFps": 5.01,
+        "counters": {
+          "results": 40,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 41,
+          "completed": 40,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 33.72509765625,
+          "hostInitMs": 17.125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.22509765625,
+          "totalMs": 0.28515625,
+          "moduleLoadMs": 15.965087890625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 40,
+            "mean": 7.15,
+            "p50": 6.83,
+            "p95": 9.49,
+            "p99": 11.59,
+            "max": 12.81
+          },
+          "inference": {
+            "n": 40,
+            "mean": 0.01,
+            "p50": 0.01,
+            "p95": 0.05,
+            "p99": 0.05,
+            "max": 0.05
+          },
+          "capture": {
+            "n": 40,
+            "mean": 0.39,
+            "p50": 0.32,
+            "p95": 0.76,
+            "p99": 0.77,
+            "max": 0.77
+          },
+          "roundTrip": {
+            "n": 40,
+            "mean": 7.62,
+            "p50": 7.27,
+            "p95": 9.89,
+            "p99": 12.04,
+            "max": 13.29
+          },
+          "transport": {
+            "n": 40,
+            "mean": 0.47,
+            "p50": 0.45,
+            "p95": 0.66,
+            "p99": 0.95,
+            "max": 1.06
+          },
+          "queueDelay": {
+            "n": 40,
+            "mean": 0.24,
+            "p50": 0.22,
+            "p95": 0.4,
+            "p99": 0.69,
+            "max": 0.84
+          },
+          "frameAge": {
+            "n": 40,
+            "mean": 1.71,
+            "p50": 1.65,
+            "p95": 2.52,
+            "p99": 2.8,
+            "max": 2.91
+          },
+          "endToEnd": {
+            "n": 40,
+            "mean": 9.09,
+            "p50": 8.84,
+            "p95": 11.53,
+            "p99": 13.71,
+            "max": 15.04
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 107.91,
+          "metadata": {
+            "stdLuma": 30.55,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "probeLow": {
+        "state": "ready",
+        "targetFps": 1,
+        "effectiveFps": 1,
+        "averageFps": 1,
+        "counters": {
+          "results": 8,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 8,
+          "completed": 8,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 30.26513671875,
+          "hostInitMs": 14.419921875,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.27001953125,
+          "totalMs": 0.349853515625,
+          "moduleLoadMs": 12.625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 8,
+            "mean": 259.94,
+            "p50": 258.55,
+            "p95": 265.31,
+            "p99": 266.88,
+            "max": 267.27
+          },
+          "inference": {
+            "n": 8,
+            "mean": 250.13,
+            "p50": 250.1,
+            "p95": 250.31,
+            "p99": 250.36,
+            "max": 250.38
+          },
+          "capture": {
+            "n": 8,
+            "mean": 0.46,
+            "p50": 0.41,
+            "p95": 0.77,
+            "p99": 0.85,
+            "max": 0.86
+          },
+          "roundTrip": {
+            "n": 8,
+            "mean": 260.52,
+            "p50": 259.08,
+            "p95": 266.12,
+            "p99": 267.87,
+            "max": 268.31
+          },
+          "transport": {
+            "n": 8,
+            "mean": 0.58,
+            "p50": 0.52,
+            "p95": 0.93,
+            "p99": 1.01,
+            "max": 1.03
+          },
+          "queueDelay": {
+            "n": 8,
+            "mean": 0.27,
+            "p50": 0.25,
+            "p95": 0.4,
+            "p99": 0.41,
+            "max": 0.42
+          },
+          "frameAge": {
+            "n": 8,
+            "mean": 2.69,
+            "p50": 1.68,
+            "p95": 6.71,
+            "p99": 8.27,
+            "max": 8.66
+          },
+          "endToEnd": {
+            "n": 8,
+            "mean": 262.94,
+            "p50": 260.8,
+            "p95": 271.91,
+            "p99": 275.63,
+            "max": 276.55
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 104.69,
+          "metadata": {
+            "stdLuma": 25.62,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 640,
+            "frameHeight": 360,
+            "simulatedWorkMs": 250
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 161,
+        "frameTickRate": 20.09,
+        "frameCallbackFps": 20.23,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 161,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 494,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 80,
+          "p50": 0,
+          "p95": 7.39,
+          "max": 10.38
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "memory": {
+        "method": "measureUserAgentSpecificMemory",
+        "measuredAt": 1794302242868.555,
+        "durationMs": 16011.265000000596,
+        "totalBytes": 9340456,
+        "contexts": [
+          {
+            "scope": "Window",
+            "url": "http://localhost:4317/?automation=1",
+            "bytes": 6514157,
+            "shared": false,
+            "entries": 2
+          },
+          {
+            "scope": "DedicatedWorkerGlobalScope",
+            "url": "http://localhost:4317/assets/diagnostic.worker--ascEew_.js",
+            "bytes": 1694330,
+            "shared": false,
+            "entries": 2
+          },
+          {
+            "scope": "unattributed",
+            "url": "",
+            "bytes": 1131969,
+            "shared": false,
+            "entries": 2
+          }
+        ]
+      }
+    }
+  },
+  "requests": {
+    "total": 7,
+    "offOrigin": [],
+    "workerAssetsSeen": []
+  },
+  "consoleErrorCount": 1,
+  "consoleErrors": [
+    "[camera] Camera track ended (device disconnected or permission revoked)"
+  ],
+  "failureDiagnostics": {
+    "camera": {
+      "status": "error",
+      "error": {
+        "name": "LabError",
+        "message": "The camera track ended unexpectedly",
+        "code": "TRACK_ENDED",
+        "stack": "LabError: The camera track ended unexpectedly\n    at #N (http://localhost:4317/assets/index-LePy8yC0.js:64:62845)\n    at http://localhost:4317/assets/index-LePy8yC0.js:64:53067\n    at #s (http://localhost:4317/assets/index-LePy8yC0.js:9:144771)\n    at MediaStreamTrack.t (http://localhost:4317/assets/index-LePy8yC0.js:9:144358)"
+      },
+      "devices": [],
+      "selectedDeviceId": "b133ce0793fe5e5df46986a081176ee69598f9ac7a9d27db2eb0a9a30f10e0fe",
+      "track": null,
+      "releasedTrackStates": [
+        "ended"
+      ],
+      "frameSource": null
+    },
+    "log": [
+      {
+        "at": 1794302217998.77,
+        "level": "info",
+        "source": "camera",
+        "message": "Consent to camera capture recorded for this session"
+      },
+      {
+        "at": 1794302218110.6099,
+        "level": "info",
+        "source": "probe-high",
+        "message": "Engine ready after 33.7 ms (provider: js)"
+      },
+      {
+        "at": 1794302218204.8098,
+        "level": "info",
+        "source": "camera",
+        "message": "Camera started: \"fake_device_0\" 1280x720 @ 20 fps"
+      },
+      {
+        "at": 1794302218288.1099,
+        "level": "info",
+        "source": "pipeline",
+        "message": "Detection started; metrics and violations reset"
+      },
+      {
+        "at": 1794302226337.325,
+        "level": "info",
+        "source": "probe-high",
+        "message": "Engine configuration updated: {\"simulatedWorkMs\":450}"
+      },
+      {
+        "at": 1794302234759.72,
+        "level": "info",
+        "source": "probe-high",
+        "message": "Engine configuration updated: {\"simulatedWorkMs\":0}"
+      },
+      {
+        "at": 1794302234825.92,
+        "level": "info",
+        "source": "probe-low",
+        "message": "Engine ready after 30.3 ms (provider: js)"
+      },
+      {
+        "at": 1794302251682.45,
+        "level": "error",
+        "source": "camera",
+        "message": "Camera track ended (device disconnected or permission revoked)"
+      },
+      {
+        "at": 1794302251683.545,
+        "level": "info",
+        "source": "pipeline",
+        "message": "Detection stopped"
+      },
+      {
+        "at": 1794302251684.885,
+        "level": "info",
+        "source": "camera",
+        "message": "Camera stopped; released track states: ended"
+      },
+      {
+        "at": 1794302258879.93,
+        "level": "info",
+        "source": "monitor",
+        "message": "Memory measured with measureUserAgentSpecificMemory"
+      },
+      {
+        "at": 1794302258910.0999,
+        "level": "info",
+        "source": "probe-high",
+        "message": "Engine configuration updated: {\"failEveryN\":5}"
+      }
+    ]
+  },
+  "labReport": null
+}

@@ -1,0 +1,2451 @@
+{
+  "tool": "scripts/browser-smoke.mjs",
+  "startedAt": "2026-11-10T06:06:16.705Z",
+  "finishedAt": "2026-11-10T06:07:10.516Z",
+  "browser": {
+    "channel": "chrome",
+    "version": "156.0.8078.80",
+    "headless": true
+  },
+  "server": "vite preview of the production build",
+  "host": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12450H",
+    "logicalCpus": 12,
+    "platform": "win32 10.0.26200"
+  },
+  "measurementWindowMs": 8000,
+  "passed": true,
+  "functionalChecks": {
+    "passed": 29,
+    "total": 29
+  },
+  "performanceChecks": {
+    "passed": 5,
+    "total": 5
+  },
+  "checks": [
+    {
+      "name": "page is cross-origin isolated (COOP/COEP)",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "camera started (at most one retry)",
+      "kind": "functional",
+      "passed": true,
+      "detail": [
+        "ok"
+      ]
+    },
+    {
+      "name": "camera track is live",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "width": 1280,
+        "height": 720,
+        "frameRate": 20
+      }
+    },
+    {
+      "name": "A: frame clock uses requestVideoFrameCallback",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "A: no inference failures",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "A: worker received real pixels (FRAME_PROBE mean luma > 0)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 103.02
+    },
+    {
+      "name": "A: average FPS within 10% of the 5 FPS target",
+      "kind": "performance",
+      "passed": true,
+      "detail": 5.12
+    },
+    {
+      "name": "B: no backlog (dispatched - settled <= 1)",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "dispatched": 17,
+        "settled": 16
+      }
+    },
+    {
+      "name": "B: skipped sampling slots are counted",
+      "kind": "functional",
+      "passed": true,
+      "detail": 16
+    },
+    {
+      "name": "B: rate falls below target instead of queueing (average FPS < 2.5)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 2.02
+    },
+    {
+      "name": "B: frames stay fresh (frame age at worker start p95 < 150 ms)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 2.58
+    },
+    {
+      "name": "B: preview frame callbacks >= 90% of baseline while the worker is saturated",
+      "kind": "performance",
+      "passed": true,
+      "detail": {
+        "baseline": 20.14,
+        "underLoad": 20.25
+      }
+    },
+    {
+      "name": "B: main thread responsive (event-loop lag p95 < 50 ms)",
+      "kind": "performance",
+      "passed": true,
+      "detail": 11.05
+    },
+    {
+      "name": "C: low-priority engine is not starved (results > 0)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 8
+    },
+    {
+      "name": "C: low-priority input downscaled to 640 px during capture",
+      "kind": "functional",
+      "passed": true,
+      "detail": 640
+    },
+    {
+      "name": "C: no inference failures",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "C: memory measured including workers",
+      "kind": "functional",
+      "passed": true,
+      "detail": "measureUserAgentSpecificMemory"
+    },
+    {
+      "name": "C: high-priority average FPS within 10% of 5",
+      "kind": "performance",
+      "passed": true,
+      "detail": 5.01
+    },
+    {
+      "name": "C: low-priority average FPS within 25% of 1",
+      "kind": "performance",
+      "passed": true,
+      "detail": 1
+    },
+    {
+      "name": "D: every 5th frame fails (failure share 10-30%)",
+      "kind": "functional",
+      "passed": true,
+      "detail": 0.2
+    },
+    {
+      "name": "D: engine stays ready and keeps producing results",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "E: frames older than maxFrameAgeMs are dropped before inference",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "results": 0,
+        "failures": 0,
+        "droppedStale": 16,
+        "droppedAborted": 0,
+        "restarts": 0
+      }
+    },
+    {
+      "name": "F: restarted worker is ready and produces results",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "restarts": 1,
+        "results": 13,
+        "spawnToReadyMs": 26.52
+      }
+    },
+    {
+      "name": "G: disabled engine is unloaded (worker terminated)",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "H: blocked main thread recorded as a stall whose timestamps cover the block",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "durationMs": 630.11,
+        "startedAfterBlockStartMs": 70.2,
+        "endedAfterBlockEndMs": 0.28
+      }
+    },
+    {
+      "name": "H: stall logged as a warning with its duration",
+      "kind": "functional",
+      "passed": true,
+      "detail": "Main thread unavailable for 630 ms"
+    },
+    {
+      "name": "H: runtime health panel shows the stall",
+      "kind": "functional",
+      "passed": true,
+      "detail": "1 · max 630 ms · last at 11:37:08.937 (630 ms)"
+    },
+    {
+      "name": "H: frame ticks and results resume after the stall, frame clock back on rVFC",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "ticks": 21,
+        "results": 5,
+        "clock": "requestVideoFrameCallback"
+      }
+    },
+    {
+      "name": "H: window blur and focus recorded and logged",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "hidden": 0,
+        "visible": 0,
+        "blur": 1,
+        "focus": 1
+      }
+    },
+    {
+      "name": "I: camera tracks ended and preview detached",
+      "kind": "functional",
+      "passed": true,
+      "detail": [
+        "ended"
+      ]
+    },
+    {
+      "name": "no CSP violations",
+      "kind": "functional",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "no uncaught page errors",
+      "kind": "functional",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "no failed network requests",
+      "kind": "functional",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "no unexpected console errors",
+      "kind": "functional",
+      "passed": true,
+      "detail": []
+    }
+  ],
+  "scenarios": {
+    "cameraStartAttempts": [
+      {
+        "attempt": 1,
+        "status": "active",
+        "error": null
+      }
+    ],
+    "camera": {
+      "label": "fake_device_0",
+      "settings": {
+        "aspectRatio": 1.7777777777777777,
+        "deviceId": "defc682630f1edab5c8afb312c6dcd9642f3d8fa1cc50edb74c63e5fd601b00d",
+        "exposureMode": "manual",
+        "exposureTime": 50,
+        "focusDistance": 50,
+        "focusMode": "manual",
+        "frameRate": 20,
+        "groupId": "784e1aef4eacd5c3fc245d8612b169c80623f384606abf8e13037164fdc1ab18",
+        "height": 720,
+        "resizeMode": "none",
+        "width": 1280
+      }
+    },
+    "A_baseline": {
+      "machineCpuBusyPercent": 24.5,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 5,
+        "averageFps": 5.12,
+        "counters": {
+          "results": 41,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 40,
+          "completed": 40,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 36.530029296875,
+          "hostInitMs": 14.77001953125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.219970703125,
+          "totalMs": 0.294921875,
+          "moduleLoadMs": 13.349853515625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 41,
+            "mean": 7.77,
+            "p50": 7.25,
+            "p95": 11.59,
+            "p99": 19.06,
+            "max": 23.77
+          },
+          "inference": {
+            "n": 41,
+            "mean": 0.05,
+            "p50": 0.01,
+            "p95": 0.26,
+            "p99": 0.64,
+            "max": 0.8
+          },
+          "capture": {
+            "n": 41,
+            "mean": 0.46,
+            "p50": 0.24,
+            "p95": 0.46,
+            "p99": 5.13,
+            "max": 8.16
+          },
+          "roundTrip": {
+            "n": 41,
+            "mean": 8.17,
+            "p50": 7.62,
+            "p95": 12.01,
+            "p99": 20.04,
+            "max": 24.96
+          },
+          "transport": {
+            "n": 41,
+            "mean": 0.41,
+            "p50": 0.36,
+            "p95": 0.66,
+            "p99": 1.03,
+            "max": 1.19
+          },
+          "queueDelay": {
+            "n": 41,
+            "mean": 0.21,
+            "p50": 0.18,
+            "p95": 0.37,
+            "p99": 0.49,
+            "max": 0.5
+          },
+          "frameAge": {
+            "n": 41,
+            "mean": 1.76,
+            "p50": 1.22,
+            "p95": 2.02,
+            "p99": 12.1,
+            "max": 14.76
+          },
+          "endToEnd": {
+            "n": 41,
+            "mean": 9.73,
+            "p50": 8.72,
+            "p95": 13.84,
+            "p99": 31.71,
+            "max": 39.25
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 103.02,
+          "metadata": {
+            "stdLuma": 22.6,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 160,
+        "frameTickRate": 19.97,
+        "frameCallbackFps": 20.14,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 160,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 163,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 80,
+          "p50": 0,
+          "p95": 5.9,
+          "max": 11.3
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "B_backpressure": {
+      "machineCpuBusyPercent": 26,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 2,
+        "averageFps": 2.02,
+        "counters": {
+          "results": 16,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 17,
+          "completed": 16,
+          "skippedBusy": 16,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 36.530029296875,
+          "hostInitMs": 14.77001953125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.219970703125,
+          "totalMs": 0.294921875,
+          "moduleLoadMs": 13.349853515625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 16,
+            "mean": 456.91,
+            "p50": 457.14,
+            "p95": 459.1,
+            "p99": 459.48,
+            "max": 459.58
+          },
+          "inference": {
+            "n": 16,
+            "mean": 450.03,
+            "p50": 450.01,
+            "p95": 450.1,
+            "p99": 450.25,
+            "max": 450.29
+          },
+          "capture": {
+            "n": 16,
+            "mean": 0.27,
+            "p50": 0.22,
+            "p95": 0.51,
+            "p99": 0.67,
+            "max": 0.71
+          },
+          "roundTrip": {
+            "n": 16,
+            "mean": 457.26,
+            "p50": 457.49,
+            "p95": 459.5,
+            "p99": 460.01,
+            "max": 460.14
+          },
+          "transport": {
+            "n": 16,
+            "mean": 0.35,
+            "p50": 0.34,
+            "p95": 0.43,
+            "p99": 0.53,
+            "max": 0.55
+          },
+          "queueDelay": {
+            "n": 16,
+            "mean": 0.17,
+            "p50": 0.17,
+            "p95": 0.23,
+            "p99": 0.3,
+            "max": 0.32
+          },
+          "frameAge": {
+            "n": 16,
+            "mean": 1.45,
+            "p50": 1.17,
+            "p95": 2.58,
+            "p99": 5.22,
+            "max": 5.88
+          },
+          "endToEnd": {
+            "n": 16,
+            "mean": 458.54,
+            "p50": 458.36,
+            "p95": 461.74,
+            "p99": 464.9,
+            "max": 465.7
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 98.98,
+          "metadata": {
+            "stdLuma": 11.1,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 450
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 161,
+        "frameTickRate": 20.1,
+        "frameCallbackFps": 20.25,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 161,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 324,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 80,
+          "p50": 0,
+          "p95": 11.05,
+          "max": 13.92
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "C_twoEngines": {
+      "machineCpuBusyPercent": 16.5,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 5,
+        "averageFps": 5.01,
+        "counters": {
+          "results": 40,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 40,
+          "completed": 40,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 36.530029296875,
+          "hostInitMs": 14.77001953125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.219970703125,
+          "totalMs": 0.294921875,
+          "moduleLoadMs": 13.349853515625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 40,
+            "mean": 6.71,
+            "p50": 6.46,
+            "p95": 9.49,
+            "p99": 9.95,
+            "max": 10.07
+          },
+          "inference": {
+            "n": 40,
+            "mean": 0.01,
+            "p50": 0,
+            "p95": 0.01,
+            "p99": 0.01,
+            "max": 0.01
+          },
+          "capture": {
+            "n": 40,
+            "mean": 0.25,
+            "p50": 0.22,
+            "p95": 0.49,
+            "p99": 0.53,
+            "max": 0.54
+          },
+          "roundTrip": {
+            "n": 40,
+            "mean": 7.08,
+            "p50": 6.77,
+            "p95": 9.93,
+            "p99": 10.25,
+            "max": 10.36
+          },
+          "transport": {
+            "n": 40,
+            "mean": 0.37,
+            "p50": 0.34,
+            "p95": 0.5,
+            "p99": 0.53,
+            "max": 0.55
+          },
+          "queueDelay": {
+            "n": 40,
+            "mean": 0.19,
+            "p50": 0.18,
+            "p95": 0.33,
+            "p99": 0.33,
+            "max": 0.33
+          },
+          "frameAge": {
+            "n": 40,
+            "mean": 1.38,
+            "p50": 1.17,
+            "p95": 1.77,
+            "p99": 5.54,
+            "max": 7.85
+          },
+          "endToEnd": {
+            "n": 40,
+            "mean": 8.27,
+            "p50": 7.9,
+            "p95": 10.86,
+            "p99": 14.64,
+            "max": 16.87
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 107.91,
+          "metadata": {
+            "stdLuma": 30.55,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "probeLow": {
+        "state": "ready",
+        "targetFps": 1,
+        "effectiveFps": 1,
+        "averageFps": 1,
+        "counters": {
+          "results": 8,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 8,
+          "completed": 8,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 27.580078125,
+          "hostInitMs": 10.60009765625,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.25,
+          "totalMs": 0.315185546875,
+          "moduleLoadMs": 9.47509765625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 8,
+            "mean": 258.77,
+            "p50": 258.38,
+            "p95": 260.77,
+            "p99": 261.13,
+            "max": 261.22
+          },
+          "inference": {
+            "n": 8,
+            "mean": 250.12,
+            "p50": 250.1,
+            "p95": 250.31,
+            "p99": 250.36,
+            "max": 250.37
+          },
+          "capture": {
+            "n": 8,
+            "mean": 0.31,
+            "p50": 0.3,
+            "p95": 0.42,
+            "p99": 0.44,
+            "max": 0.44
+          },
+          "roundTrip": {
+            "n": 8,
+            "mean": 259.26,
+            "p50": 258.91,
+            "p95": 261.49,
+            "p99": 262.01,
+            "max": 262.14
+          },
+          "transport": {
+            "n": 8,
+            "mean": 0.49,
+            "p50": 0.46,
+            "p95": 0.81,
+            "p99": 0.9,
+            "max": 0.92
+          },
+          "queueDelay": {
+            "n": 8,
+            "mean": 0.23,
+            "p50": 0.18,
+            "p95": 0.39,
+            "p99": 0.4,
+            "max": 0.41
+          },
+          "frameAge": {
+            "n": 8,
+            "mean": 2.09,
+            "p50": 1.33,
+            "p95": 5.6,
+            "p99": 7.34,
+            "max": 7.77
+          },
+          "endToEnd": {
+            "n": 8,
+            "mean": 261.13,
+            "p50": 260.09,
+            "p95": 266.59,
+            "p99": 268.92,
+            "max": 269.5
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 104.69,
+          "metadata": {
+            "stdLuma": 25.62,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 640,
+            "frameHeight": 360,
+            "simulatedWorkMs": 250
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 160,
+        "frameTickRate": 19.97,
+        "frameCallbackFps": 20.32,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 160,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 493,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 80,
+          "p50": 0,
+          "p95": 9.97,
+          "max": 12.34
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "memory": {
+        "method": "measureUserAgentSpecificMemory",
+        "measuredAt": 1794290802039.3499,
+        "durationMs": 12004.564999997616,
+        "totalBytes": 7739015,
+        "contexts": [
+          {
+            "scope": "Window",
+            "url": "http://localhost:4317/?automation=1",
+            "bytes": 5077872,
+            "shared": false,
+            "entries": 1
+          },
+          {
+            "scope": "DedicatedWorkerGlobalScope",
+            "url": "http://localhost:4317/assets/diagnostic.worker-BUL2Ct71.js",
+            "bytes": 1634966,
+            "shared": false,
+            "entries": 2
+          },
+          {
+            "scope": "unattributed",
+            "url": "",
+            "bytes": 1026177,
+            "shared": false,
+            "entries": 2
+          }
+        ]
+      }
+    },
+    "D_failures": {
+      "machineCpuBusyPercent": 19.7,
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 4,
+        "averageFps": 4.09,
+        "counters": {
+          "results": 32,
+          "failures": 8,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 40,
+          "completed": 40,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 36.530029296875,
+          "hostInitMs": 14.77001953125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.219970703125,
+          "totalMs": 0.294921875,
+          "moduleLoadMs": 13.349853515625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 32,
+            "mean": 6.66,
+            "p50": 6.53,
+            "p95": 9.12,
+            "p99": 9.64,
+            "max": 9.86
+          },
+          "inference": {
+            "n": 32,
+            "mean": 0.01,
+            "p50": 0.01,
+            "p95": 0.02,
+            "p99": 0.13,
+            "max": 0.19
+          },
+          "capture": {
+            "n": 32,
+            "mean": 0.23,
+            "p50": 0.21,
+            "p95": 0.38,
+            "p99": 0.4,
+            "max": 0.41
+          },
+          "roundTrip": {
+            "n": 32,
+            "mean": 7.03,
+            "p50": 6.82,
+            "p95": 9.48,
+            "p99": 9.97,
+            "max": 10.16
+          },
+          "transport": {
+            "n": 32,
+            "mean": 0.37,
+            "p50": 0.33,
+            "p95": 0.58,
+            "p99": 0.83,
+            "max": 0.88
+          },
+          "queueDelay": {
+            "n": 32,
+            "mean": 0.19,
+            "p50": 0.16,
+            "p95": 0.3,
+            "p99": 0.61,
+            "max": 0.74
+          },
+          "frameAge": {
+            "n": 32,
+            "mean": 1.22,
+            "p50": 1.17,
+            "p95": 1.49,
+            "p99": 1.99,
+            "max": 2.21
+          },
+          "endToEnd": {
+            "n": 32,
+            "mean": 8.06,
+            "p50": 7.91,
+            "p95": 10.36,
+            "p99": 11.12,
+            "max": 11.45
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 107.62,
+          "metadata": {
+            "stdLuma": 30.13,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 160,
+        "frameTickRate": 19.99,
+        "frameCallbackFps": 19.46,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 160,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 894,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 80,
+          "p50": 0,
+          "p95": 4.59,
+          "max": 11.63
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "E_stale": {
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 0,
+        "averageFps": null,
+        "counters": {
+          "results": 0,
+          "failures": 0,
+          "droppedStale": 16,
+          "droppedAborted": 0,
+          "restarts": 0
+        },
+        "scheduler": {
+          "dispatched": 16,
+          "completed": 16,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 36.530029296875,
+          "hostInitMs": 14.77001953125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.219970703125,
+          "totalMs": 0.294921875,
+          "moduleLoadMs": 13.349853515625
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "inference": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "capture": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "roundTrip": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "transport": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "queueDelay": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "frameAge": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "endToEnd": {
+            "n": 0,
+            "mean": null,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 107.62,
+          "metadata": {
+            "stdLuma": 30.13,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 61,
+        "frameTickRate": 20.26,
+        "frameCallbackFps": 19.98,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 61,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 955,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 31,
+          "p50": 0.22,
+          "p95": 5.29,
+          "max": 11.61
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "F_restart": {
+      "probeHigh": {
+        "state": "ready",
+        "targetFps": 5,
+        "effectiveFps": 5.11,
+        "averageFps": 5.03,
+        "counters": {
+          "results": 13,
+          "failures": 0,
+          "droppedStale": 0,
+          "droppedAborted": 0,
+          "restarts": 1
+        },
+        "scheduler": {
+          "dispatched": 13,
+          "completed": 13,
+          "skippedBusy": 0,
+          "skippedYield": 0
+        },
+        "init": {
+          "spawnToReadyMs": 26.52490234375,
+          "hostInitMs": 10.175048828125,
+          "modelFetchMs": 0,
+          "modelInitMs": 0.2900390625,
+          "totalMs": 0.389892578125,
+          "moduleLoadMs": 8.719970703125
+        },
+        "latencyMs": {
+          "engine": {
+            "n": 13,
+            "mean": 7.62,
+            "p50": 7.72,
+            "p95": 9.52,
+            "p99": 9.58,
+            "max": 9.6
+          },
+          "inference": {
+            "n": 13,
+            "mean": 0.1,
+            "p50": 0.01,
+            "p95": 0.37,
+            "p99": 0.52,
+            "max": 0.55
+          },
+          "capture": {
+            "n": 13,
+            "mean": 0.26,
+            "p50": 0.25,
+            "p95": 0.35,
+            "p99": 0.35,
+            "max": 0.35
+          },
+          "roundTrip": {
+            "n": 13,
+            "mean": 8.07,
+            "p50": 8.06,
+            "p95": 10.15,
+            "p99": 10.28,
+            "max": 10.31
+          },
+          "transport": {
+            "n": 13,
+            "mean": 0.45,
+            "p50": 0.39,
+            "p95": 0.76,
+            "p99": 0.97,
+            "max": 1.02
+          },
+          "queueDelay": {
+            "n": 13,
+            "mean": 0.23,
+            "p50": 0.2,
+            "p95": 0.4,
+            "p99": 0.42,
+            "max": 0.43
+          },
+          "frameAge": {
+            "n": 13,
+            "mean": 1.61,
+            "p50": 1.26,
+            "p95": 3.42,
+            "p99": 5.74,
+            "max": 6.32
+          },
+          "endToEnd": {
+            "n": 13,
+            "mean": 9.45,
+            "p50": 8.9,
+            "p95": 13.11,
+            "p99": 15.59,
+            "max": 16.2
+          }
+        },
+        "lastObservation": {
+          "type": "FRAME_PROBE",
+          "detected": true,
+          "value": 104.07,
+          "metadata": {
+            "stdLuma": 24.77,
+            "sampleWidth": 64,
+            "sampleHeight": 36,
+            "frameWidth": 1280,
+            "frameHeight": 720,
+            "simulatedWorkMs": 0
+          }
+        }
+      },
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 51,
+        "frameTickRate": 20.05,
+        "frameCallbackFps": 20.2,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 51,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 0,
+        "playbackQuality": {
+          "totalVideoFrames": 1006,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 25,
+          "p50": 0.52,
+          "p95": 3.19,
+          "max": 13.98
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 0,
+          "maxMs": null,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 0,
+          "focus": 0
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "H_mainThreadStall": {
+      "blockedMs": 700.03,
+      "block": {
+        "startedAt": 1794290828237.51,
+        "endedAt": 1794290828937.54
+      },
+      "documentHasFocus": true,
+      "recordedStall": {
+        "startedAt": 1794290828307.71,
+        "endedAt": 1794290828937.825,
+        "durationMs": 630.1149999946356,
+        "pageHiddenDuringGap": false,
+        "windowBlurredDuringGap": false
+      },
+      "stalls": {
+        "count": 1,
+        "maxMs": 630.11
+      },
+      "stallLog": "Main thread unavailable for 630 ms",
+      "ticksInSecondAfterStall": 21,
+      "resultsInSecondAfterStall": 5,
+      "frameClockAfter": "requestVideoFrameCallback",
+      "pageEvents": {
+        "hidden": 0,
+        "visible": 0,
+        "blur": 1,
+        "focus": 1
+      },
+      "monitorLog": [
+        "Main thread unavailable for 630 ms",
+        "Window lost focus",
+        "Window regained focus"
+      ],
+      "stallCellText": "1 · max 630 ms · last at 11:37:08.937 (630 ms)",
+      "health": {
+        "frameClock": "requestVideoFrameCallback",
+        "frameTicksInWindow": 38,
+        "frameTickRate": 14.97,
+        "frameCallbackFps": 18.42,
+        "frameClockStalls": 0,
+        "fallbackTicks": 0,
+        "timestampSources": {
+          "captureTime": 38,
+          "presentationTime": 0,
+          "callbackTime": 0
+        },
+        "missedFrameCallbacks": 13,
+        "playbackQuality": {
+          "totalVideoFrames": 1058,
+          "droppedVideoFrames": 0
+        },
+        "eventLoopLagMs": {
+          "n": 19,
+          "p50": 0,
+          "p95": 73.21,
+          "max": 630.11
+        },
+        "hiddenSamplesExcluded": 0,
+        "mainThreadStalls": {
+          "count": 1,
+          "maxMs": 630.11,
+          "hiddenPageGaps": 0
+        },
+        "pageEvents": {
+          "hidden": 0,
+          "visible": 0,
+          "blur": 1,
+          "focus": 1
+        },
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      }
+    },
+    "I_stop": {
+      "releasedTrackStates": [
+        "ended"
+      ],
+      "videoSrcObjectCleared": true
+    }
+  },
+  "consoleErrorCount": 3,
+  "consoleErrors": [
+    "[probe-high] Frame 750 failed: e [INJECTED_FAILURE]: Injected failure on call 165 (failEveryN=5)",
+    "[probe-high] Frame 790 failed: e [INJECTED_FAILURE]: Injected failure on call 175 (failEveryN=5) (+1 similar suppressed)",
+    "[probe-high] Frame 850 failed: e [INJECTED_FAILURE]: Injected failure on call 190 (failEveryN=5) (+2 similar suppressed)"
+  ],
+  "failureDiagnostics": null,
+  "labReport": {
+    "schema": "proctoring-cv-lab/report@1",
+    "exportedAt": "2026-11-10T06:07:10.266Z",
+    "app": {
+      "name": "proctoring-cv-benchmark",
+      "phase": 1,
+      "mode": "production"
+    },
+    "consentAt": "2026-11-10T06:06:17.277Z",
+    "config": {
+      "camera": {
+        "width": 1280,
+        "height": 720,
+        "frameRate": 30
+      },
+      "monitor": {
+        "latencyWindowSize": 2000,
+        "fpsWindowMs": 5000,
+        "eventLoopProbeIntervalMs": 100,
+        "stallThresholdMs": 250,
+        "uiRefreshIntervalMs": 500
+      },
+      "engines": [
+        {
+          "id": "probe-high",
+          "kind": "diagnostic",
+          "label": "Diagnostic probe A",
+          "description": "Face-engine stand-in: 5 FPS, priority 10, no simulated work.",
+          "scheduler": {
+            "enabled": true,
+            "targetFps": 5,
+            "priority": 10,
+            "maxFrameAgeMs": 500,
+            "yieldToHigherPriority": false,
+            "maxYieldMs": 0
+          },
+          "capture": {
+            "maxInputWidth": null
+          },
+          "engineConfig": {
+            "sampleWidth": 64,
+            "simulatedWorkMs": 0,
+            "simulatedInitMs": 0,
+            "failEveryN": 0
+          },
+          "initTimeoutMs": 30000,
+          "requestTimeoutMs": 10000
+        },
+        {
+          "id": "probe-low",
+          "kind": "diagnostic",
+          "label": "Diagnostic probe B",
+          "description": "Object-detector stand-in: 1 FPS, priority 1, 250 ms blocking work, 640 px input.",
+          "scheduler": {
+            "enabled": false,
+            "targetFps": 1,
+            "priority": 1,
+            "maxFrameAgeMs": 1500,
+            "yieldToHigherPriority": true,
+            "maxYieldMs": 500
+          },
+          "capture": {
+            "maxInputWidth": 640
+          },
+          "engineConfig": {
+            "sampleWidth": 64,
+            "simulatedWorkMs": 250,
+            "simulatedInitMs": 0,
+            "failEveryN": 0
+          },
+          "initTimeoutMs": 30000,
+          "requestTimeoutMs": 10000
+        }
+      ]
+    },
+    "deviceProfile": {
+      "collectedAt": "2026-11-10T06:06:17.016Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "userAgentData": {
+        "architecture": "x86",
+        "bitness": "64",
+        "brands": [
+          {
+            "brand": "Not:A-Brand",
+            "version": "8"
+          },
+          {
+            "brand": "Chromium",
+            "version": "156"
+          },
+          {
+            "brand": "Google Chrome",
+            "version": "156"
+          }
+        ],
+        "fullVersionList": [
+          {
+            "brand": "Not:A-Brand",
+            "version": "8.0.0.0"
+          },
+          {
+            "brand": "Chromium",
+            "version": "156.0.8078.80"
+          },
+          {
+            "brand": "Google Chrome",
+            "version": "156.0.8078.80"
+          }
+        ],
+        "mobile": false,
+        "model": "",
+        "platform": "Windows",
+        "platformVersion": "19.0.0"
+      },
+      "language": "en-GB",
+      "hardwareConcurrency": 12,
+      "deviceMemoryGb": 16,
+      "screen": {
+        "width": 1500,
+        "height": 1100,
+        "devicePixelRatio": 1
+      },
+      "isSecureContext": true,
+      "crossOriginIsolated": true,
+      "wasm": {
+        "supported": true,
+        "simd": true,
+        "threads": true
+      },
+      "webgpu": {
+        "available": true,
+        "adapter": {
+          "vendor": "intel",
+          "architecture": "gen-12lp",
+          "device": "",
+          "description": ""
+        },
+        "isFallbackAdapter": false,
+        "features": [
+          "bgra8unorm-storage",
+          "clip-distances",
+          "core-features-and-limits",
+          "depth-clip-control",
+          "depth32float-stencil8",
+          "dual-source-blending",
+          "float32-blendable",
+          "float32-filterable",
+          "indirect-first-instance",
+          "primitive-index",
+          "rg11b10ufloat-renderable",
+          "shader-f16",
+          "subgroup-size-control",
+          "subgroups",
+          "texture-component-swizzle",
+          "texture-compression-bc",
+          "texture-compression-bc-sliced-3d",
+          "texture-compression-unaligned",
+          "texture-formats-tier1",
+          "texture-formats-tier2",
+          "timestamp-query"
+        ],
+        "limits": {
+          "maxBufferSize": 2147483648,
+          "maxStorageBufferBindingSize": 2147483644,
+          "maxComputeWorkgroupStorageSize": 32768
+        }
+      },
+      "webgl2": {
+        "available": true,
+        "vendor": "Google Inc. (Intel)",
+        "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046A3) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "maxTextureSize": 16384
+      },
+      "apis": {
+        "getUserMedia": true,
+        "requestVideoFrameCallback": true,
+        "createImageBitmap": true,
+        "offscreenCanvas": true,
+        "videoFrame": true,
+        "mediaRecorder": true,
+        "indexedDb": true,
+        "measureUserAgentSpecificMemory": true,
+        "longTaskTiming": true
+      }
+    },
+    "snapshot": {
+      "builtAt": 1794290830266.48,
+      "consentAt": "2026-11-10T06:06:17.277Z",
+      "camera": {
+        "status": "active",
+        "error": null,
+        "devices": [
+          {
+            "deviceId": "defc682630f1edab5c8afb312c6dcd9642f3d8fa1cc50edb74c63e5fd601b00d",
+            "label": "fake_device_0",
+            "groupId": "784e1aef4eacd5c3fc245d8612b169c80623f384606abf8e13037164fdc1ab18"
+          }
+        ],
+        "selectedDeviceId": "defc682630f1edab5c8afb312c6dcd9642f3d8fa1cc50edb74c63e5fd601b00d",
+        "track": {
+          "label": "fake_device_0",
+          "readyState": "live",
+          "muted": false,
+          "settings": {
+            "aspectRatio": 1.7777777777777777,
+            "deviceId": "defc682630f1edab5c8afb312c6dcd9642f3d8fa1cc50edb74c63e5fd601b00d",
+            "exposureMode": "manual",
+            "exposureTime": 50,
+            "focusDistance": 50,
+            "focusMode": "manual",
+            "frameRate": 20,
+            "groupId": "784e1aef4eacd5c3fc245d8612b169c80623f384606abf8e13037164fdc1ab18",
+            "height": 720,
+            "resizeMode": "none",
+            "width": 1280
+          },
+          "capabilities": {
+            "aspectRatio": {
+              "max": 3840,
+              "min": 0.000462962962962963
+            },
+            "deviceId": "defc682630f1edab5c8afb312c6dcd9642f3d8fa1cc50edb74c63e5fd601b00d",
+            "exposureMode": [
+              "manual",
+              "continuous"
+            ],
+            "exposureTime": {
+              "max": 100,
+              "min": 10,
+              "step": 5
+            },
+            "facingMode": [],
+            "focusDistance": {
+              "max": 100,
+              "min": 10,
+              "step": 5
+            },
+            "focusMode": [
+              "manual",
+              "continuous"
+            ],
+            "frameRate": {
+              "max": 20,
+              "min": 0
+            },
+            "groupId": "784e1aef4eacd5c3fc245d8612b169c80623f384606abf8e13037164fdc1ab18",
+            "height": {
+              "max": 2160,
+              "min": 1
+            },
+            "resizeMode": [
+              "none",
+              "crop-and-scale"
+            ],
+            "width": {
+              "max": 3840,
+              "min": 1
+            }
+          }
+        },
+        "releasedTrackStates": null,
+        "frameSource": {
+          "mode": "requestVideoFrameCallback",
+          "clock": "requestVideoFrameCallback",
+          "ticks": 38,
+          "fallbackTicks": 0,
+          "stalls": 0,
+          "timestampSources": {
+            "captureTime": 38,
+            "presentationTime": 0,
+            "callbackTime": 0
+          },
+          "frameIntervalMs": 54.30007772512486,
+          "presentedFrames": 51,
+          "missedCallbacks": 13,
+          "playbackQuality": {
+            "totalVideoFrames": 1058,
+            "droppedVideoFrames": 0
+          }
+        }
+      },
+      "detection": {
+        "running": true
+      },
+      "engines": [
+        {
+          "id": "probe-high",
+          "kind": "diagnostic",
+          "label": "Diagnostic probe A",
+          "description": "Face-engine stand-in: 5 FPS, priority 10, no simulated work.",
+          "capture": {
+            "maxInputWidth": null
+          },
+          "scheduler": {
+            "enabled": true,
+            "targetFps": 5,
+            "priority": 10,
+            "maxFrameAgeMs": 500,
+            "yieldToHigherPriority": false,
+            "maxYieldMs": 0
+          },
+          "schedulerCounters": {
+            "dispatched": 10,
+            "completed": 10,
+            "skippedBusy": 0,
+            "skippedYield": 0
+          },
+          "inFlight": false,
+          "engineConfig": {
+            "sampleWidth": 64,
+            "simulatedWorkMs": 0,
+            "simulatedInitMs": 0,
+            "failEveryN": 0
+          },
+          "client": {
+            "kind": "diagnostic",
+            "state": "ready",
+            "model": {
+              "id": "diagnostic-probe",
+              "version": "1",
+              "runtime": "javascript"
+            },
+            "executionProvider": "js",
+            "initTimings": {
+              "modelFetchMs": 0,
+              "modelInitMs": 0.2900390625,
+              "totalMs": 0.389892578125,
+              "moduleLoadMs": 8.719970703125
+            },
+            "detectCount": 0,
+            "errorCount": 0,
+            "lastError": null,
+            "spawnToReadyMs": 26.52490234375,
+            "hostInitMs": 10.175048828125,
+            "instanceId": "probe-high",
+            "restarts": 1,
+            "inFlight": false,
+            "pendingRequests": 0,
+            "workerAlive": true
+          },
+          "busyAction": null,
+          "lastResult": {
+            "at": 1794290830158.73,
+            "frameId": 1042,
+            "processingTimeMs": 6.64501953125,
+            "observations": [
+              {
+                "type": "FRAME_PROBE",
+                "detected": true,
+                "value": 108.07,
+                "metadata": {
+                  "stdLuma": 30.7,
+                  "sampleWidth": 64,
+                  "sampleHeight": 36,
+                  "frameWidth": 1280,
+                  "frameHeight": 720,
+                  "simulatedWorkMs": 0
+                }
+              }
+            ],
+            "timing": {
+              "captureMs": 0.23000000417232513,
+              "roundTripMs": 6.9951171875,
+              "endToEndMs": 8.219970703125,
+              "queueDelayMs": 0.185302734375,
+              "frameAgeMs": 1.41015625
+            }
+          },
+          "metrics": {
+            "label": "Diagnostic probe A",
+            "kind": "diagnostic",
+            "init": {
+              "spawnToReadyMs": 26.52490234375,
+              "hostInitMs": 10.175048828125,
+              "modelFetchMs": 0,
+              "modelInitMs": 0.2900390625,
+              "totalMs": 0.389892578125,
+              "moduleLoadMs": 8.719970703125
+            },
+            "executionProvider": "js",
+            "model": {
+              "id": "diagnostic-probe",
+              "version": "1",
+              "runtime": "javascript"
+            },
+            "effectiveFps": 3.928231140342675,
+            "averageFps": 3.746596947820324,
+            "counters": {
+              "results": 10,
+              "failures": 0,
+              "droppedStale": 0,
+              "droppedAborted": 0,
+              "restarts": 0
+            },
+            "latency": {
+              "engineMs": {
+                "count": 10,
+                "mean": 6.0699951171875,
+                "median": 5.9024658203125,
+                "p95": 8.193237304687496,
+                "p99": 9.2066162109375,
+                "min": 4.6650390625,
+                "max": 9.4599609375,
+                "stdDev": 1.3595880950386852
+              },
+              "preprocessMs": {
+                "count": 10,
+                "mean": 6.044482421875,
+                "median": 5.8800048828125,
+                "p95": 8.165893554687496,
+                "p99": 9.1810302734375,
+                "min": 4.639892578125,
+                "max": 9.434814453125,
+                "stdDev": 1.3595959363270047
+              },
+              "inferenceMs": {
+                "count": 10,
+                "mean": 0.0059814453125,
+                "median": 0.0050048828125,
+                "p95": 0.010009765625,
+                "p99": 0.010009765625,
+                "min": 0,
+                "max": 0.010009765625,
+                "stdDev": 0.00317539274334744
+              },
+              "postprocessMs": {
+                "count": 10,
+                "mean": 0.009521484375,
+                "median": 0.010009765625,
+                "p95": 0.010009765625,
+                "p99": 0.010009765625,
+                "min": 0.005126953125,
+                "max": 0.010009765625,
+                "stdDev": 0.0015440808887540916
+              },
+              "captureMs": {
+                "count": 10,
+                "mean": 0.283500000834465,
+                "median": 0.23750000447034836,
+                "p95": 0.5200000047683714,
+                "p99": 0.5920000004768372,
+                "min": 0.1600000113248825,
+                "max": 0.6099999994039536,
+                "stdDev": 0.13998115054698265
+              },
+              "roundTripMs": {
+                "count": 10,
+                "mean": 6.696044921875,
+                "median": 6.400146484375,
+                "p95": 9.383276367187499,
+                "p99": 9.6766552734375,
+                "min": 4.945068359375,
+                "max": 9.75,
+                "stdDev": 1.5649106735991472
+              },
+              "transportMs": {
+                "count": 10,
+                "mean": 0.6260498046875,
+                "median": 0.367431640625,
+                "p95": 1.8529785156249976,
+                "p99": 2.6664941406250002,
+                "min": 0.280029296875,
+                "max": 2.869873046875,
+                "stdDev": 0.7943826236120596
+              },
+              "queueDelayMs": {
+                "count": 10,
+                "mean": 0.1741943359375,
+                "median": 0.170166015625,
+                "p95": 0.24093017578124992,
+                "p99": 0.26439697265625,
+                "min": 0.09033203125,
+                "max": 0.270263671875,
+                "stdDev": 0.047462351027493715
+              },
+              "frameAgeMs": {
+                "count": 10,
+                "mean": 5.0391357421875,
+                "median": 1.420166015625,
+                "p95": 22.065893554687463,
+                "p99": 34.6534130859375,
+                "min": 0.84521484375,
+                "max": 37.80029296875,
+                "stdDev": 11.52500510782817
+              },
+              "endToEndMs": {
+                "count": 10,
+                "mean": 11.560986328125,
+                "median": 7.6524658203125,
+                "p95": 30.282995605468713,
+                "p99": 43.22866943359376,
+                "min": 6.22998046875,
+                "max": 46.465087890625,
+                "stdDev": 12.341394973883569
+              }
+            },
+            "samplesInWindow": 10,
+            "firstResultAt": 1794290827756.55,
+            "lastResultAt": 1794290830158.73,
+            "lastError": null
+          }
+        },
+        {
+          "id": "probe-low",
+          "kind": "diagnostic",
+          "label": "Diagnostic probe B",
+          "description": "Object-detector stand-in: 1 FPS, priority 1, 250 ms blocking work, 640 px input.",
+          "capture": {
+            "maxInputWidth": 640
+          },
+          "scheduler": {
+            "enabled": false,
+            "targetFps": 1,
+            "priority": 1,
+            "maxFrameAgeMs": 1500,
+            "yieldToHigherPriority": true,
+            "maxYieldMs": 500
+          },
+          "schedulerCounters": {
+            "dispatched": 0,
+            "completed": 0,
+            "skippedBusy": 0,
+            "skippedYield": 0
+          },
+          "inFlight": false,
+          "engineConfig": {
+            "sampleWidth": 64,
+            "simulatedWorkMs": 250,
+            "simulatedInitMs": 0,
+            "failEveryN": 0
+          },
+          "client": null,
+          "busyAction": null,
+          "lastResult": {
+            "at": 1794290827462.2048,
+            "frameId": 996,
+            "processingTimeMs": 258.949951171875,
+            "observations": [
+              {
+                "type": "FRAME_PROBE",
+                "detected": true,
+                "value": 109.05,
+                "metadata": {
+                  "stdLuma": 32.06,
+                  "sampleWidth": 64,
+                  "sampleHeight": 36,
+                  "frameWidth": 640,
+                  "frameHeight": 360,
+                  "simulatedWorkMs": 250
+                }
+              }
+            ],
+            "timing": {
+              "captureMs": 0.5549999922513962,
+              "roundTripMs": 259.264892578125,
+              "endToEndMs": 260.73486328125,
+              "queueDelayMs": 0.14013671875,
+              "frameAgeMs": 1.610107421875
+            }
+          },
+          "metrics": {
+            "label": "Diagnostic probe B",
+            "kind": "diagnostic",
+            "init": {
+              "spawnToReadyMs": 27.580078125,
+              "hostInitMs": 10.60009765625,
+              "modelFetchMs": 0,
+              "modelInitMs": 0.25,
+              "totalMs": 0.315185546875,
+              "moduleLoadMs": 9.47509765625
+            },
+            "executionProvider": "js",
+            "model": {
+              "id": "diagnostic-probe",
+              "version": "1",
+              "runtime": "javascript"
+            },
+            "effectiveFps": 0,
+            "averageFps": null,
+            "counters": {
+              "results": 0,
+              "failures": 0,
+              "droppedStale": 0,
+              "droppedAborted": 0,
+              "restarts": 0
+            },
+            "latency": {
+              "engineMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "preprocessMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "inferenceMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "postprocessMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "captureMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "roundTripMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "transportMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "queueDelayMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "frameAgeMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              },
+              "endToEndMs": {
+                "count": 0,
+                "mean": null,
+                "median": null,
+                "p95": null,
+                "p99": null,
+                "min": null,
+                "max": null,
+                "stdDev": null
+              }
+            },
+            "samplesInWindow": 0,
+            "firstResultAt": null,
+            "lastResultAt": null,
+            "lastError": null
+          }
+        }
+      ],
+      "monitor": {
+        "startedAt": 1794290827720.805,
+        "elapsedMs": 2545.675048828125,
+        "mainThread": {
+          "eventLoopProbeIntervalMs": 100,
+          "eventLoopLagMs": {
+            "count": 19,
+            "mean": 35.325263157486916,
+            "median": 0,
+            "p95": 73.21299999356138,
+            "p99": 518.7345999944212,
+            "min": 0,
+            "max": 630.1149999946356,
+            "stdDev": 144.07590668490883
+          },
+          "hiddenSamplesExcluded": 0,
+          "stallThresholdMs": 250,
+          "stalls": {
+            "count": 1,
+            "maxMs": 630.1149999946356,
+            "hiddenPageGaps": 0,
+            "recent": [
+              {
+                "startedAt": 1794290828307.71,
+                "endedAt": 1794290828937.825,
+                "durationMs": 630.1149999946356,
+                "pageHiddenDuringGap": false,
+                "windowBlurredDuringGap": false
+              }
+            ]
+          },
+          "pageEvents": {
+            "counts": {
+              "hidden": 0,
+              "visible": 0,
+              "blur": 1,
+              "focus": 1
+            },
+            "recent": [
+              {
+                "at": 1794290829253.2048,
+                "type": "blur"
+              },
+              {
+                "at": 1794290829253.24,
+                "type": "focus"
+              }
+            ]
+          },
+          "longTasks": {
+            "supported": true,
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          }
+        },
+        "memory": {
+          "method": "measureUserAgentSpecificMemory",
+          "measuredAt": 1794290802039.3499,
+          "durationMs": 12004.564999997616,
+          "totalBytes": 7739015,
+          "contexts": [
+            {
+              "scope": "Window",
+              "url": "http://localhost:4317/?automation=1",
+              "bytes": 5077872,
+              "shared": false,
+              "entries": 1
+            },
+            {
+              "scope": "DedicatedWorkerGlobalScope",
+              "url": "http://localhost:4317/assets/diagnostic.worker-BUL2Ct71.js",
+              "bytes": 1634966,
+              "shared": false,
+              "entries": 2
+            },
+            {
+              "scope": "unattributed",
+              "url": "",
+              "bytes": 1026177,
+              "shared": false,
+              "entries": 2
+            }
+          ]
+        },
+        "memoryPending": false
+      },
+      "deviceProfile": {
+        "collectedAt": "2026-11-10T06:06:17.016Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+        "userAgentData": {
+          "architecture": "x86",
+          "bitness": "64",
+          "brands": [
+            {
+              "brand": "Not:A-Brand",
+              "version": "8"
+            },
+            {
+              "brand": "Chromium",
+              "version": "156"
+            },
+            {
+              "brand": "Google Chrome",
+              "version": "156"
+            }
+          ],
+          "fullVersionList": [
+            {
+              "brand": "Not:A-Brand",
+              "version": "8.0.0.0"
+            },
+            {
+              "brand": "Chromium",
+              "version": "156.0.8078.80"
+            },
+            {
+              "brand": "Google Chrome",
+              "version": "156.0.8078.80"
+            }
+          ],
+          "mobile": false,
+          "model": "",
+          "platform": "Windows",
+          "platformVersion": "19.0.0"
+        },
+        "language": "en-GB",
+        "hardwareConcurrency": 12,
+        "deviceMemoryGb": 16,
+        "screen": {
+          "width": 1500,
+          "height": 1100,
+          "devicePixelRatio": 1
+        },
+        "isSecureContext": true,
+        "crossOriginIsolated": true,
+        "wasm": {
+          "supported": true,
+          "simd": true,
+          "threads": true
+        },
+        "webgpu": {
+          "available": true,
+          "adapter": {
+            "vendor": "intel",
+            "architecture": "gen-12lp",
+            "device": "",
+            "description": ""
+          },
+          "isFallbackAdapter": false,
+          "features": [
+            "bgra8unorm-storage",
+            "clip-distances",
+            "core-features-and-limits",
+            "depth-clip-control",
+            "depth32float-stencil8",
+            "dual-source-blending",
+            "float32-blendable",
+            "float32-filterable",
+            "indirect-first-instance",
+            "primitive-index",
+            "rg11b10ufloat-renderable",
+            "shader-f16",
+            "subgroup-size-control",
+            "subgroups",
+            "texture-component-swizzle",
+            "texture-compression-bc",
+            "texture-compression-bc-sliced-3d",
+            "texture-compression-unaligned",
+            "texture-formats-tier1",
+            "texture-formats-tier2",
+            "timestamp-query"
+          ],
+          "limits": {
+            "maxBufferSize": 2147483648,
+            "maxStorageBufferBindingSize": 2147483644,
+            "maxComputeWorkgroupStorageSize": 32768
+          }
+        },
+        "webgl2": {
+          "available": true,
+          "vendor": "Google Inc. (Intel)",
+          "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046A3) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "maxTextureSize": 16384
+        },
+        "apis": {
+          "getUserMedia": true,
+          "requestVideoFrameCallback": true,
+          "createImageBitmap": true,
+          "offscreenCanvas": true,
+          "videoFrame": true,
+          "mediaRecorder": true,
+          "indexedDb": true,
+          "measureUserAgentSpecificMemory": true,
+          "longTaskTiming": true
+        }
+      },
+      "log": [
+        {
+          "at": 1794290777277.635,
+          "level": "info",
+          "source": "camera",
+          "message": "Consent to camera capture recorded for this session"
+        },
+        {
+          "at": 1794290777403.4749,
+          "level": "info",
+          "source": "camera",
+          "message": "Camera started: \"fake_device_0\" 1280x720 @ 20 fps"
+        },
+        {
+          "at": 1794290777443.785,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Engine ready after 36.5 ms (provider: js)"
+        },
+        {
+          "at": 1794290777501.5598,
+          "level": "info",
+          "source": "pipeline",
+          "message": "Detection started; metrics reset"
+        },
+        {
+          "at": 1794290785543.165,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Engine configuration updated: {\"simulatedWorkMs\":450}"
+        },
+        {
+          "at": 1794290793959.3398,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Engine configuration updated: {\"simulatedWorkMs\":0}"
+        },
+        {
+          "at": 1794290794012.38,
+          "level": "info",
+          "source": "probe-low",
+          "message": "Engine ready after 27.6 ms (provider: js)"
+        },
+        {
+          "at": 1794290814043.97,
+          "level": "info",
+          "source": "monitor",
+          "message": "Memory measured with measureUserAgentSpecificMemory"
+        },
+        {
+          "at": 1794290814072.615,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Engine configuration updated: {\"failEveryN\":5}"
+        },
+        {
+          "at": 1794290814907.69,
+          "level": "error",
+          "source": "probe-high",
+          "message": "Frame 750 failed: e [INJECTED_FAILURE]: Injected failure on call 165 (failEveryN=5)"
+        },
+        {
+          "at": 1794290816910.555,
+          "level": "error",
+          "source": "probe-high",
+          "message": "Frame 790 failed: e [INJECTED_FAILURE]: Injected failure on call 175 (failEveryN=5) (+1 similar suppressed)"
+        },
+        {
+          "at": 1794290819913.595,
+          "level": "error",
+          "source": "probe-high",
+          "message": "Frame 850 failed: e [INJECTED_FAILURE]: Injected failure on call 190 (failEveryN=5) (+2 similar suppressed)"
+        },
+        {
+          "at": 1794290822092.645,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Engine configuration updated: {\"failEveryN\":0}"
+        },
+        {
+          "at": 1794290822097.79,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Scheduler updated: {\"maxFrameAgeMs\":0.01}"
+        },
+        {
+          "at": 1794290822110.8398,
+          "level": "warn",
+          "source": "probe-high",
+          "message": "Frame 894 dropped (stale)"
+        },
+        {
+          "at": 1794290824311.255,
+          "level": "warn",
+          "source": "probe-high",
+          "message": "Frame 938 dropped (stale) (+10 similar suppressed)"
+        },
+        {
+          "at": 1794290825120.625,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Scheduler updated: {\"maxFrameAgeMs\":500}"
+        },
+        {
+          "at": 1794290825129.4548,
+          "level": "warn",
+          "source": "probe-high",
+          "message": "Restarting worker"
+        },
+        {
+          "at": 1794290825156.3398,
+          "level": "info",
+          "source": "probe-high",
+          "message": "Worker restarted; ready after 26.5 ms"
+        },
+        {
+          "at": 1794290827698.9448,
+          "level": "info",
+          "source": "probe-low",
+          "message": "Engine unloaded; worker terminated"
+        },
+        {
+          "at": 1794290828938.04,
+          "level": "warn",
+          "source": "monitor",
+          "message": "Main thread unavailable for 630 ms"
+        },
+        {
+          "at": 1794290829253.23,
+          "level": "info",
+          "source": "monitor",
+          "message": "Window lost focus"
+        },
+        {
+          "at": 1794290829253.2449,
+          "level": "info",
+          "source": "monitor",
+          "message": "Window regained focus"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "tool": "scripts/browser-smoke.mjs",
+  "startedAt": "2026-11-10T06:20:37.038Z",
+  "finishedAt": "2026-11-10T06:20:54.288Z",
+  "browser": {
+    "channel": "msedge",
+    "version": "157.0.4341.42",
+    "headless": true
+  },
+  "server": "vite preview of the production build",
+  "host": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12450H",
+    "logicalCpus": 12,
+    "platform": "win32 10.0.26200"
+  },
+  "measurementWindowMs": 8000,
+  "passed": false,
+  "functionalChecks": {
+    "passed": 1,
+    "total": 3
+  },
+  "performanceChecks": {
+    "passed": 0,
+    "total": 0
+  },
+  "checks": [
+    {
+      "name": "page is cross-origin isolated (COOP/COEP)",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "camera started (at most one retry)",
+      "kind": "functional",
+      "passed": false,
+      "detail": [
+        "TRACK_ENDED",
+        "DEVICE_NOT_FOUND"
+      ]
+    },
+    {
+      "name": "smoke run completed without exceptions",
+      "kind": "functional",
+      "passed": false,
+      "detail": "page.waitForFunction: Timeout 15000ms exceeded.\n    at waitFor (C:\\code\\office\\proctoring-cv-benchmark\\scripts\\browser-smoke.mjs:225:12)\n    at main (C:\\code\\office\\proctoring-cv-benchmark\\scripts\\browser-smoke.mjs:292:11)\n    at async file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:700:1"
+    }
+  ],
+  "scenarios": {
+    "cameraStartAttempts": [
+      {
+        "attempt": 1,
+        "status": "error",
+        "error": {
+          "name": "bi",
+          "message": "The camera track ended unexpectedly",
+          "code": "TRACK_ENDED",
+          "stack": "bi: The camera track ended unexpectedly\n    at #A (http://localhost:4317/assets/index-DmlxMQDw.js:64:52589)\n    at http://localhost:4317/assets/index-DmlxMQDw.js:64:44514\n    at #s (http://localhost:4317/assets/index-DmlxMQDw.js:9:134742)\n    at MediaStreamTrack.t (http://localhost:4317/assets/index-DmlxMQDw.js:9:134329)"
+        }
+      },
+      {
+        "attempt": 2,
+        "status": "error",
+        "error": {
+          "name": "Ei",
+          "message": "No camera matching the selection was found. (NotFoundError: Requested device not found)",
+          "code": "DEVICE_NOT_FOUND",
+          "stack": "Ei: No camera matching the selection was found. (NotFoundError: Requested device not found)\n    at ma (http://localhost:4317/assets/index-DmlxMQDw.js:9:134934)\n    at pa.start (http://localhost:4317/assets/index-DmlxMQDw.js:9:133475)\n    at async sm.startCamera (http://localhost:4317/assets/index-DmlxMQDw.js:64:45249)",
+          "cause": {
+            "name": "NotFoundError",
+            "message": "Requested device not found"
+          }
+        }
+      }
+    ]
+  },
+  "consoleErrorCount": 2,
+  "consoleErrors": [
+    "[camera] Camera track ended (device disconnected or permission revoked)",
+    "[camera] Ei [DEVICE_NOT_FOUND]: No camera matching the selection was found. (NotFoundError: Requested device not found) <- caused by: NotFoundError [8]: Requested device not found"
+  ],
+  "failureDiagnostics": {
+    "camera": {
+      "status": "error",
+      "error": {
+        "name": "Ei",
+        "message": "No camera matching the selection was found. (NotFoundError: Requested device not found)",
+        "code": "DEVICE_NOT_FOUND",
+        "stack": "Ei: No camera matching the selection was found. (NotFoundError: Requested device not found)\n    at ma (http://localhost:4317/assets/index-DmlxMQDw.js:9:134934)\n    at pa.start (http://localhost:4317/assets/index-DmlxMQDw.js:9:133475)\n    at async sm.startCamera (http://localhost:4317/assets/index-DmlxMQDw.js:64:45249)",
+        "cause": {
+          "name": "NotFoundError",
+          "message": "Requested device not found"
+        }
+      },
+      "devices": [],
+      "selectedDeviceId": null,
+      "track": null,
+      "releasedTrackStates": null,
+      "frameSource": null
+    },
+    "log": [
+      {
+        "at": 1794291637716.3,
+        "level": "info",
+        "source": "camera",
+        "message": "Consent to camera capture recorded for this session"
+      },
+      {
+        "at": 1794291638951.9202,
+        "level": "error",
+        "source": "camera",
+        "message": "Camera track ended (device disconnected or permission revoked)"
+      },
+      {
+        "at": 1794291638953.3801,
+        "level": "info",
+        "source": "camera",
+        "message": "Camera stopped; released track states: ended"
+      },
+      {
+        "at": 1794291638999,
+        "level": "error",
+        "source": "camera",
+        "message": "Ei [DEVICE_NOT_FOUND]: No camera matching the selection was found. (NotFoundError: Requested device not found) <- caused by: NotFoundError [8]: Requested device not found"
+      }
+    ]
+  },
+  "labReport": null
+}
