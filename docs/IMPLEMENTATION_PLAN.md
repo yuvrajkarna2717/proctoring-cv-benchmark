@@ -60,13 +60,23 @@ Found during Phase 2 and handled: MediaPipe Tasks Vision 1.2.2 sends usage stati
 
 Status (2026-11-11): implemented as planned, with one change: WASM is the default provider and WebGPU is opt-in, because WASM was faster for both models on the development laptop (Intel UHD): verifier engine time 2.4–5 times lower in the three smoke runs, 1.5–5.7 times per model including a standalone experiment; WebGPU falls back to WASM when it cannot start. Added: a `FACE_MISMATCH` rule (similarity below the threshold for 2 s on frames that pass the verification gate), per-model latency breakdown, and a self-check embedding that compares providers. SFace provenance restated in `docs/MODEL_LICENSES.md` (opencv_zoo#318 still unanswered). Open: the FAR/FRR exit criterion needs captures of real persons with the checklist in `docs/TESTING_GUIDE.md`; the synthetic camera has no face. See `docs/PHASE3_REPORT.md`.
 
-### Phase 4 — Head pose, gaze, eye state
+### Phase 4 — Head pose, gaze, eye state (implemented; real-person checks pending)
 
 - Head pose (yaw, pitch, roll) from MediaPipe's transformation matrix; optional `solvePnP` comparison.
 - Gaze from iris position relative to eye corners, normalized by a per-user calibration of the normal viewing position.
 - Eye openness from blendshapes (`eyeBlinkLeft/Right`) and eye aspect ratio; blink and prolonged closure as separate observations.
 - Temporal rules: `GAZE_AWAY` (1500–2000 ms), `HEAD_TURNED` (1500 ms), `EYES_CLOSED` (1500 ms), all configurable.
 - Exit: each observation measurable on its own against annotated recordings; calibration flow works.
+
+Status (2026-11-11): implemented, with additions aimed at users finding the old gaze check too strict or too easy to cheat:
+
+- Every rule is measured against the person's own screen area (a guided 15 s calibration, or a baseline learned in the first 10 s) instead of a fixed angle.
+- Gaze combines the head pose with the eye direction.
+- A second rule, `GAZE_AWAY_REPEATED`, reports repeated short looks toward the same side (4 in 30 s).
+- Long violations escalate in severity.
+- Lenient, balanced, and strict presets set tolerances and timings together.
+
+Defaults (balanced): GAZE_AWAY 500 ms, clear after 300 ms, cooldown 2000 ms (tuned by the user on a real webcam; first set to 2000 / 600 / 3000), HEAD_TURNED 1500 ms, EYES_CLOSED 2000 ms. Conventions were checked on one public-domain portrait; enabling blendshapes and matrices added no measurable latency. `solvePnP` was not compared (it needs OpenCV.js). Open: real-person checks (checklist in `docs/TESTING_GUIDE.md`) and annotated recordings (Phase 7). See `docs/PHASE4_REPORT.md`.
 
 ### Phase 5 — Image quality
 

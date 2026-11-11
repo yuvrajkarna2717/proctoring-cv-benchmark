@@ -28,7 +28,29 @@ const HISTORY_ROWS = 15;
 const seconds = (ms) => (ms === null || ms === undefined ? "—" : `${formatNumber(ms / 1000, 1)} s`);
 
 /**
- * Temporal rules (NO_FACE, MULTIPLE_FACES): live state, editable thresholds, active
+ * The rule-specific measure of a violation, with the direction and baseline for attention rules.
+ * @param {import('../../pipeline/ViolationEngine.js').Violation} violation
+ */
+function describeMeasure(violation) {
+  const toward = violation.direction ? ` ${violation.direction}` : "";
+  const uncalibrated = violation.baseline === "learned" ? " (uncalibrated)" : "";
+  if (violation.minSimilarity !== null && violation.minSimilarity !== undefined) {
+    return `sim ${formatNumber(violation.minSimilarity, 3)}`;
+  }
+  if (violation.maxExcessDeg !== null && violation.maxExcessDeg !== undefined) {
+    return `${formatNumber(violation.maxExcessDeg, 1)}° beyond${toward}${uncalibrated}`;
+  }
+  if (violation.glanceCount !== null && violation.glanceCount !== undefined) {
+    return `${violation.glanceCount} looks${toward}${uncalibrated}`;
+  }
+  if (violation.maxClosure !== null && violation.maxClosure !== undefined) {
+    return `blink ${formatNumber(violation.maxClosure, 2)}`;
+  }
+  return `${violation.maxFaceCount} faces`;
+}
+
+/**
+ * Temporal rules (face, identity, attention): live state, editable thresholds, active
  * violations, and history. Thresholds are starting values; changes apply from the next frame.
  */
 export function ViolationsPanel() {
@@ -60,7 +82,8 @@ export function ViolationsPanel() {
         <span className="small text-muted">
           faces: {violations.sourceEngineId}, {formatInteger(violations.framesEvaluated)} frames ·
           identity: {violations.identitySourceEngineId},{" "}
-          {formatInteger(violations.identityFramesEvaluated)} compared · gap limit{" "}
+          {formatInteger(violations.identityFramesEvaluated)} compared · attention:{" "}
+          {formatInteger(violations.attentionFramesEvaluated)} frames · gap limit{" "}
           {violations.maxGapMs} ms · rule times in ms
         </span>
         {violations.active.length > 0 && (
@@ -91,7 +114,7 @@ export function ViolationsPanel() {
               <th title="Minimum milliseconds between the end of one violation and the next of the same type">
                 Cooldown
               </th>
-              <th title="MULTIPLE_FACES: minimum face count. FACE_MISMATCH: cosine similarity below which a compared frame counts as a mismatch (not a probability)">
+              <th title="MULTIPLE_FACES: minimum face count. FACE_MISMATCH: cosine similarity below which a compared frame counts as a mismatch (not a probability). GAZE_AWAY_REPEATED: looks away needed in the window. GAZE_AWAY, HEAD_TURNED, EYES_CLOSED: severity raised when a violation lasts this long">
                 Rule value
               </th>
               <th>Severity</th>
@@ -165,6 +188,32 @@ export function ViolationsPanel() {
                         controller.updateViolationRule(rule.type, { minFaces: value })
                       }
                     />
+                  ) : "minGlances" in rule.config ? (
+                    <div className="d-flex gap-1 align-items-start">
+                      <CommitNumberInput
+                        key={`${rule.type}-minGlances-${rule.config.minGlances}`}
+                        id={`rule-${rule.type}-minGlances`}
+                        ariaLabel={`${rule.type} glances needed`}
+                        value={/** @type {number} */ (rule.config.minGlances)}
+                        min={2}
+                        max={100}
+                        step={1}
+                        onCommit={(value) =>
+                          controller.updateViolationRule(rule.type, { minGlances: value })
+                        }
+                      />
+                      <span className="small text-muted text-wrap" style={{ minWidth: "6rem" }}>
+                        in {formatNumber(/** @type {number} */ (rule.config.windowMs) / 1000, 0)} s,
+                        each ≥ {rule.config.minGlanceMs} ms
+                        {rule.config.sameDirection ? ", same side" : ""}
+                      </span>
+                    </div>
+                  ) : "escalateAfterMs" in rule.config ? (
+                    <span className="small text-muted text-wrap">
+                      {rule.config.escalateAfterMs === null
+                        ? "no escalation"
+                        : `→ ${rule.config.escalatedSeverity} after ${formatNumber(/** @type {number} */ (rule.config.escalateAfterMs) / 1000, 0)} s`}
+                    </span>
                   ) : "similarityThreshold" in rule.config ? (
                     <CommitNumberInput
                       key={`${rule.type}-threshold-${rule.config.similarityThreshold}`}
@@ -222,7 +271,7 @@ export function ViolationsPanel() {
               <th>Started</th>
               <th>Duration</th>
               <th title="Frames on which the condition held">Frames</th>
-              <th title="Highest face count, or for FACE_MISMATCH the lowest similarity to the reference">
+              <th title="Highest face count; FACE_MISMATCH: lowest similarity to the reference; GAZE_AWAY, HEAD_TURNED: largest angle beyond the tolerated area and its direction; GAZE_AWAY_REPEATED: looks away in the window; EYES_CLOSED: highest blink score">
                 Measure
               </th>
               <th>Status</th>
@@ -247,15 +296,14 @@ export function ViolationsPanel() {
                 <td>{violation.type}</td>
                 <td>
                   <Badge bg={SEVERITY_VARIANTS[violation.severity]}>{violation.severity}</Badge>
+                  {violation.escalatedAt !== null && violation.escalatedAt !== undefined && (
+                    <div className="small text-muted">from {violation.initialSeverity}</div>
+                  )}
                 </td>
                 <td className="font-monospace">{formatClock(violation.startedAt)}</td>
                 <td>{seconds(violation.durationMs)}</td>
                 <td>{violation.frames}</td>
-                <td>
-                  {violation.minSimilarity !== null && violation.minSimilarity !== undefined
-                    ? `sim ${formatNumber(violation.minSimilarity, 3)}`
-                    : `${violation.maxFaceCount} faces`}
-                </td>
+                <td>{describeMeasure(violation)}</td>
                 <td>
                   {violation.status === "active" ? "active" : `ended (${violation.endReason})`}
                 </td>

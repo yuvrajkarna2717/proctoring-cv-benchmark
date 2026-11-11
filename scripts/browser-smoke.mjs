@@ -1,6 +1,6 @@
 /**
  * Headless browser smoke test of the lab (pipeline from Phase 1, face engine and violation rules
- * from Phase 2).
+ * from Phase 2, face verification from Phase 3, attention from Phase 4).
  *
  * Builds the app, serves the production build with `vite preview` (same COOP/COEP headers and
  * CSP as a deployment), opens it in an installed Chromium-based browser with Chrome's synthetic
@@ -14,6 +14,9 @@
  *   worker. The synthetic camera shows no face, so these measure the detector-only path.
  * - K: NO_FACE fires and ends; MULTIPLE_FACES does not fire; a threshold edited in the UI applies.
  * - L: inside the face worker, the egress guard refuses other origins and the CSP applies.
+ * - Q (runs after L): attention without a face: every frame undecided, no baseline, no attention
+ *   violation; the calibration overlay appears and the calibration fails with its reason; a
+ *   strictness preset chosen in the UI applies.
  * - M, N: face verifier (YuNet + SFace, ONNX Runtime Web) on the WASM provider, then switched live
  *   to WebGPU. With no face on the synthetic camera, the centre-crop diagnostic runs both models.
  * - O: identity storage, enrollment refusing frames without a face, no FACE_MISMATCH without a
@@ -37,7 +40,7 @@
  * --dev runs against the Vite dev server (unbundled modules, no CSP) instead of the build.
  * Requires the model files (npm run fetch-models).
  *
- * Output: reports/phase2-smoke-<channel>-<timestamp>.json; exit code 1 if a functional check fails.
+ * Output: reports/phase<N>-smoke-<channel>-<timestamp>.json; exit code 1 if a functional check fails.
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -49,7 +52,7 @@ import { DEFAULT_FACE_VERIFIER_CONFIG } from "../src/engines/verification/faceVe
 import { ORT_WASM_DIR } from "../src/engines/verification/ortAssets.js";
 import { ensureModels } from "./fetch-models.mjs";
 
-const PHASE = 3;
+const PHASE = 4;
 const IDENTITY_DATABASE = "proctoring-cv-lab-identity";
 const FACE_MODEL = MODEL_ASSETS["mp-face-landmarker"];
 /** The verifier's default SFace variant, which the smoke run loads. */
@@ -1093,10 +1096,126 @@ async function main() {
       );
     }
 
+    // Q: attention (head pose, gaze, eyes) on the face landmarker. The synthetic camera shows no
+    // face, so every frame is "undecided": no baseline may be learned, no attention rule may
+    // fire, and a calibration must fail with a clear reason instead of hanging. Detection was
+    // stopped at the end of K.
+    await waitForDetection(false);
+    const calibrateButton = page.getByTestId("attention-calibrate");
+    const calibrateDisabledWhileStopped = await calibrateButton.isDisabled();
+    const qLandmarkerConfig = engine(await snapshot(), "face-landmarker").engineConfig;
+    await page.getByRole("button", { name: "Start detection" }).click();
+    await waitForDetection(true);
+    await page.waitForTimeout(3000);
+    const qLive = await snapshot();
+    assertCameraActive(qLive, "Q attention");
+    await calibrateButton.click();
+    const overlayShown = await page
+      .getByTestId("calibration-dot")
+      .waitFor({ state: "visible", timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    const firstTarget = overlayShown
+      ? await page.getByTestId("calibration-dot").getAttribute("data-target")
+      : null;
+    await page.waitForFunction(
+      () => window.__CV_LAB__.getSnapshot().attention.calibration.status === "failed",
+      null,
+      { timeout: 20_000 },
+    );
+    const overlayGone = (await page.getByTestId("calibration-overlay").count()) === 0;
+    const calibrationMessage = await page
+      .getByTestId("attention-calibration-message")
+      .textContent({ timeout: 3000 })
+      .catch(() => null);
+    await page.locator("#attention-preset").selectOption("strict");
+    await page.waitForFunction(
+      () => window.__CV_LAB__.getSnapshot().attention.config.preset === "strict",
+      null,
+      { timeout: 5000 },
+    );
+    const qStrict = await snapshot();
+    await page.locator("#attention-preset").selectOption("balanced");
+    await page.getByRole("button", { name: "Stop detection" }).click();
+    await waitForDetection(false);
+    const qEnd = await snapshot();
+    const attentionTypes = ["GAZE_AWAY", "GAZE_AWAY_REPEATED", "HEAD_TURNED", "EYES_CLOSED"];
+    const attentionViolations = qEnd.violations.history.filter((v) =>
+      attentionTypes.includes(v.type),
+    );
+    const failedLog = qEnd.log.findLast(
+      (entry) => entry.source === "attention" && /^Calibration failed: /.test(entry.message),
+    );
+    scenarios.Q_attention = {
+      landmarkerOutputs: {
+        blendshapes: qLandmarkerConfig.outputFaceBlendshapes,
+        matrices: qLandmarkerConfig.outputFacialTransformationMatrixes,
+      },
+      last: qLive.attention.last,
+      profile: qLive.attention.profile,
+      attentionFrames: qLive.violations.attentionFramesEvaluated,
+      stats: qEnd.attention.stats,
+      calibration: {
+        overlayShown,
+        firstTarget,
+        overlayGone,
+        status: qEnd.attention.calibration.status,
+        message: calibrationMessage,
+      },
+      strictPreset: {
+        config: qStrict.attention.config.preset,
+        gazeAwayMinDurationMs: qStrict.violations.rules.find((r) => r.type === "GAZE_AWAY").config
+          .minDurationMs,
+      },
+      attentionViolations,
+    };
+    check(
+      "Q: face landmarker outputs blendshapes and transformation matrices",
+      qLandmarkerConfig.outputFaceBlendshapes === true &&
+        qLandmarkerConfig.outputFacialTransformationMatrixes === true,
+      scenarios.Q_attention.landmarkerOutputs,
+    );
+    check(
+      "Q: calibration needs running detection (button disabled while stopped)",
+      calibrateDisabledWhileStopped,
+    );
+    check(
+      "Q: attention samples evaluated; without a face every frame is undecided and no baseline is learned",
+      qLive.violations.attentionFramesEvaluated > 0 &&
+        qLive.attention.last?.gaze.state === "undecided" &&
+        qLive.attention.last?.gaze.reason === "no face" &&
+        qLive.attention.profile === null &&
+        qEnd.attention.stats.gaze.on + qEnd.attention.stats.gaze.away === 0,
+      { last: qLive.attention.last?.gaze, stats: qEnd.attention.stats.gaze },
+    );
+    check(
+      "Q: calibration shows the target overlay, then fails without a face and removes the overlay",
+      overlayShown &&
+        firstTarget === "center" &&
+        overlayGone &&
+        qEnd.attention.calibration.status === "failed" &&
+        /only 0 usable frames/.test(calibrationMessage ?? "") &&
+        Boolean(failedLog),
+      scenarios.Q_attention.calibration,
+    );
+    check(
+      "Q: strict preset applied from the UI to tolerances and rules",
+      qStrict.attention.config.preset === "strict" &&
+        qStrict.attention.config.marginDeg === 3 &&
+        scenarios.Q_attention.strictPreset.gazeAwayMinDurationMs === 300 &&
+        qEnd.attention.config.preset === "balanced",
+      scenarios.Q_attention.strictPreset,
+    );
+    check(
+      "Q: no attention violation without a face",
+      attentionViolations.length === 0,
+      attentionViolations,
+    );
+
     // M: face verifier (YuNet + SFace on ONNX Runtime Web) on the WASM provider, running alone.
     // The synthetic camera shows no face, so the centre-crop diagnostic embeds a square of every
     // frame: both models run on every frame, but nothing is aligned to a face. Detection was
-    // stopped at the end of K.
+    // stopped at the end of Q.
     await waitForDetection(false);
     await page.locator("#engine-enabled-face-landmarker").uncheck();
     await waitFor(

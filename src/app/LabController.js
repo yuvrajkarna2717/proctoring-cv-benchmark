@@ -8,6 +8,8 @@ import { validateLabConfig } from "../config/schema.js";
 import { closeFrame } from "../engines/EngineContract.js";
 import { ENGINE_CONFIG_SCHEMAS } from "../engines/engineKinds.js";
 import { DEFAULT_FACE_VERIFIER_CONFIG } from "../engines/verification/faceVerifierConfig.js";
+import { AttentionManager } from "../attention/AttentionManager.js";
+import { PRESET_RULE_TYPES, attentionPreset } from "../attention/presets.js";
 import { IdentityManager } from "../identity/IdentityManager.js";
 import { createIdentityStore } from "../identity/IdentityStore.js";
 import { DetectionPipeline } from "../pipeline/DetectionPipeline.js";
@@ -25,7 +27,7 @@ import { WorkerEngineClient } from "../workers/WorkerEngineClient.js";
 import { WORKER_FACTORIES } from "../workers/workerFactories.js";
 
 export const REPORT_SCHEMA = "proctoring-cv-lab/report@1";
-const LAB_PHASE = 3;
+const LAB_PHASE = 4;
 const MAX_LOG_ENTRIES = 200;
 const LOG_THROTTLE_MS = 2000;
 
@@ -126,6 +128,10 @@ export class LabController {
   #violations;
   /** @type {IdentityManager} */
   #identity;
+  /** @type {AttentionManager} */
+  #attention;
+  /** status, target, and attempt of the calibration last published */
+  #calibrationKey = "";
   /** @type {ReturnType<typeof setInterval> | null} */
   #refreshTimer = null;
   #dirty = false;
@@ -163,6 +169,7 @@ export class LabController {
     this.#monitor.onMainThreadEvent((event) => this.#onMainThreadEvent(event));
     this.#violations = new ViolationEngine(this.#config.violations, {
       identitySourceEngineId: this.#config.identity.sourceEngineId,
+      attentionSourceEngineId: this.#config.attention.sourceEngineId,
     });
     this.#violations.onEvent((event) => this.#onViolationEvent(event));
     this.#identity = new IdentityManager({
@@ -178,6 +185,8 @@ export class LabController {
     });
     this.#identity.onEvent((event) => this.#onIdentityEvent(event));
     void this.#identity.load();
+    this.#attention = new AttentionManager({ config: this.#config.attention, now });
+    this.#attention.onEvent((event) => this.#onAttentionEvent(event));
     for (const definition of this.#config.engines) {
       this.#slots.set(definition.id, {
         definition,
@@ -471,6 +480,7 @@ export class LabController {
     this.resetMetrics();
     this.#violations.clear();
     this.#identity.clearComparisons();
+    this.#attention.startSession();
     this.#pipeline.start();
     this.#detectionRunning = true;
     this.#log("info", "pipeline", "Detection started; metrics and violations reset");
@@ -480,6 +490,7 @@ export class LabController {
   stopDetection() {
     this.#pipeline?.stop();
     this.#violations.interrupt("stopped");
+    this.#attention.cancelCalibration();
     if (this.#detectionRunning) this.#log("info", "pipeline", "Detection stopped");
     this.#detectionRunning = false;
     this.#publish();
@@ -494,9 +505,79 @@ export class LabController {
    */
   updateViolationRule(type, patch) {
     const rule = this.#violations.updateRule(type, patch);
+    // A hand-tuned attention rule no longer matches the preset it came from. Switching a rule
+    // on or off or changing its severity keeps the preset.
+    const tuned = Object.keys(patch).some((key) => key !== "enabled" && key !== "severity");
+    if (PRESET_RULE_TYPES.includes(/** @type {any} */ (type)) && tuned) {
+      this.#attention.updateConfig({ preset: "custom" });
+    }
     this.#log("info", "violations", `${type} rule updated: ${JSON.stringify(patch)}`);
     this.#publish();
     return rule;
+  }
+
+  // ---- attention: head pose, gaze, eye state ---------------------------------------------
+
+  /**
+   * Starts the guided calibration: the UI shows a dot at `snapshot.attention.calibration.target`
+   * and the person follows it with their eyes.
+   *
+   * @param {{ width: number, height: number, fullscreen: boolean }} viewport
+   */
+  startAttentionCalibration(viewport) {
+    const slot = this.#slots.get(this.#attention.sourceEngineId);
+    if (!slot?.client?.isReady || !slot.scheduler.config.enabled) {
+      throw new LabError(
+        `Load the ${slot?.definition.label ?? "face landmarker"} engine to calibrate attention`,
+        { code: "ENGINE_NOT_READY" },
+      );
+    }
+    if (!this.#detectionRunning) {
+      throw new LabError("Start detection to calibrate attention", {
+        code: "DETECTION_NOT_RUNNING",
+      });
+    }
+    this.#attention.startCalibration(viewport);
+  }
+
+  cancelAttentionCalibration() {
+    this.#attention.cancelCalibration();
+    this.#publish();
+  }
+
+  /** Drops the calibration or learned baseline; a new one is learned from the next frames. */
+  resetAttentionBaseline() {
+    this.#attention.resetBaseline();
+    this.#publish();
+  }
+
+  /**
+   * Applies a strictness preset: the attention tolerances and the four attention rules'
+   * timings and counts. Rules keep their on/off state and severity.
+   *
+   * @param {import('../attention/presets.js').PresetName} name
+   */
+  applyAttentionPreset(name) {
+    const preset = attentionPreset(name);
+    this.#attention.updateConfig({ ...preset.attention, preset: name });
+    for (const type of PRESET_RULE_TYPES) {
+      this.#violations.updateRule(type, preset.rules[type]);
+    }
+    this.#log("info", "attention", `Attention preset "${name}" applied`);
+    this.#publish();
+  }
+
+  /**
+   * Changes attention tolerances (margins, head limits, eye thresholds). Marks the preset as
+   * custom unless the patch names one.
+   *
+   * @param {Record<string, any>} patch
+   */
+  updateAttentionConfig(patch) {
+    const config = this.#attention.updateConfig({ preset: "custom", ...patch });
+    this.#log("info", "attention", `Attention settings updated: ${JSON.stringify(patch)}`);
+    this.#publish();
+    return config;
   }
 
   /** Clears the violation history and statistics. */
@@ -647,6 +728,7 @@ export class LabController {
         },
         // Effective gates (they can be edited live). No reference or calibration embeddings.
         identity: snapshot.identity.config,
+        attention: snapshot.attention.config,
       },
       deviceProfile: this.#deviceProfile,
       snapshot,
@@ -696,6 +778,7 @@ export class LabController {
       },
       violations: this.#violations.getSnapshot(),
       identity: this.#identitySnapshot(),
+      attention: this.#attention.getSnapshot(),
       deviceProfile: this.#deviceProfile,
       log: [...this.#logEntries],
     };
@@ -847,6 +930,10 @@ export class LabController {
           const sample = this.#identity.observe(event.result);
           if (sample) this.#violations.observeIdentity(sample);
         }
+        if (event.engineId === this.#attention.sourceEngineId) {
+          const sample = this.#attention.observe(event.result);
+          if (sample) this.#violations.observeAttention(sample);
+        }
       }
       const notice = {
         engineId: event.engineId,
@@ -882,16 +969,29 @@ export class LabController {
   #onViolationEvent({ type, violation }) {
     const seconds = (/** @type {number} */ ms) => `${(ms / 1000).toFixed(1)} s`;
     if (type === "violation-start") {
-      const condition =
-        violation.type === "NO_FACE"
-          ? "no face"
-          : violation.type === "FACE_MISMATCH"
-            ? `similarity to the reference down to ${violation.minSimilarity?.toFixed(3)}`
-            : `${violation.maxFaceCount} faces`;
+      const toward = violation.direction ? ` toward the ${violation.direction}` : "";
+      // Angles measured against a learned baseline use the default screen size.
+      const against = violation.baseline === "learned" ? ", uncalibrated" : "";
+      /** @type {Record<string, string>} */
+      const conditions = {
+        NO_FACE: "no face",
+        FACE_MISMATCH: `similarity to the reference down to ${violation.minSimilarity?.toFixed(3)}`,
+        GAZE_AWAY: `gaze up to ${violation.maxExcessDeg}° outside the screen area${toward}`,
+        GAZE_AWAY_REPEATED: `${violation.glanceCount} looks away${toward} in the window`,
+        HEAD_TURNED: `head up to ${violation.maxExcessDeg}° beyond the limit${toward}`,
+        EYES_CLOSED: `eyes closed, blink score up to ${violation.maxClosure}`,
+      };
+      const condition = conditions[violation.type] ?? `${violation.maxFaceCount} faces`;
       this.#log(
         "warn",
         "violations",
-        `${violation.type} started (${condition} for ${seconds(violation.confirmedAt - violation.startedAt)}, severity ${violation.severity})`,
+        `${violation.type} started (${condition} for ${seconds(violation.confirmedAt - violation.startedAt)}, severity ${violation.severity}${against})`,
+      );
+    } else if (type === "violation-escalated") {
+      this.#log(
+        "warn",
+        "violations",
+        `${violation.type} still active after ${seconds(violation.durationMs)}: severity raised to ${violation.severity}`,
       );
     } else {
       this.#log(
@@ -911,6 +1011,28 @@ export class LabController {
       this.#violations.interruptRule("FACE_MISMATCH", "reference-changed");
     }
     // Identity changes come from user actions or accepted samples (at most a few per second).
+    this.#publish();
+  }
+
+  /** @param {import('../attention/AttentionManager.js').AttentionEvent} event */
+  #onAttentionEvent(event) {
+    if (event.type === "log") {
+      this.#log(event.level, "attention", event.message);
+    } else if (event.type === "profile-changed") {
+      // Angles measured against the old baseline say nothing about the new one.
+      for (const type of PRESET_RULE_TYPES) {
+        this.#violations.interruptRule(type, "baseline-changed");
+      }
+    }
+    this.#dirty = true;
+    if (event.type === "calibration") {
+      // Publish at once when the dot moves or the run ends, so the settle time is not spent
+      // waiting for the next UI refresh; phase changes within a target can wait.
+      const { status, index, attempt } = event.state;
+      const key = `${status}:${index}:${attempt}`;
+      if (key === this.#calibrationKey) return;
+      this.#calibrationKey = key;
+    }
     this.#publish();
   }
 
@@ -1014,6 +1136,7 @@ export class LabController {
       // Ends violations whose source engine went silent (stalled, restarting, page hidden).
       if (this.#detectionRunning) this.#violations.tick(this.#now());
       this.#identity.tick(this.#now());
+      this.#attention.tick();
       if (this.#dirty || this.#detectionRunning) this.#publish();
     }, this.#config.monitor.uiRefreshIntervalMs);
   }

@@ -1,5 +1,7 @@
 import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
+import { AttentionPanel } from "../../ui/attention/AttentionPanel.jsx";
+import { CalibrationOverlay } from "../../ui/attention/CalibrationOverlay.jsx";
 import { EngineMetricsTable } from "../../ui/benchmarks/EngineMetricsTable.jsx";
 import { RuntimeHealthPanel } from "../../ui/benchmarks/RuntimeHealthPanel.jsx";
 import { CameraPanel } from "../../ui/camera/CameraPanel.jsx";
@@ -13,8 +15,8 @@ import { IdentityPanel } from "../../ui/identity/IdentityPanel.jsx";
 import { ViolationsPanel } from "../../ui/violations/ViolationsPanel.jsx";
 
 /**
- * Page 1: camera, engine controls, and live measurements. Enrollment and calibration sit under
- * the preview, so the person can be positioned while watching it.
+ * Page 1: camera, engine controls, and live measurements. Attention, enrollment, and
+ * calibration sit under the preview, so the person can be positioned while watching it.
  */
 export function LiveTestingPage() {
   const snapshot = useLabSnapshot();
@@ -23,6 +25,8 @@ export function LiveTestingPage() {
       <Col xl={5} lg={6}>
         <ConsentNotice />
         <CameraPanel />
+        <AttentionPanel />
+        <CalibrationOverlay />
         <IdentityPanel />
         <CalibrationPanel />
         <EventLog entries={snapshot.log} />

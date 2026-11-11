@@ -1,6 +1,20 @@
 # Known limitations
 
-Updated at the end of each phase. Status: Phase 3 (2026-11-11), before the Phase 3 real-webcam sessions.
+Updated at the end of each phase. Status: Phase 4 (2026-11-11), before the Phase 3 and Phase 4 real-webcam sessions.
+
+## Scope of Phase 4 results (attention)
+
+- **No real person has been measured.** Head pose and gaze conventions were checked on one still public-domain portrait run through the app; the classification (on screen, away, repeated looks, closed eyes) only with synthetic samples in unit tests. The smoke test's synthetic camera has no face, so it checks that nothing fires without one. Every tolerance, duration, and count is a starting value (the "balanced" preset) until annotated recordings exist (Phases 7–8).
+- **Gaze from iris landmarks is coarse.** The iris position against the eye corners gives a few degrees at best. It degrades with glasses (reflections), small faces (eyes under about 12 px wide are left undecided), strong head turns (the far eye is foreshortened and weighted less), and low light. The calibration removes a constant offset per person, not frame-to-frame noise; the margin around the screen absorbs some of it.
+- **The eye model is approximate.** Gaze is corrected for the head pose with one eye model, whose corner-depth constant was chosen on that portrait. On it, gaze came out within 7° (yaw) and 10° (pitch) of the camera, against 33–39° for the head alone. Other faces will differ; the calibration measures the screen in the same units, so a consistent error mostly cancels.
+- **A learned baseline is weaker than a calibration.** Without a calibration, the median gaze of the first 10 s of detection is taken as the screen centre, with a default screen size (17° left and right, 10° up and down). It is wrong when the person looks away for most of those seconds, and the default size fits a 14–15" laptop at 50–60 cm, not a large or external monitor. Violations measured against it say "uncalibrated".
+- **Calibration measures the browser window unless it is full screen.** The overlay requests full screen; if the browser refuses, the result carries a warning. A second monitor is outside the measured area, so looking at it counts as away (which is intended for an exam).
+- **Down is ambiguous.** Looking at the keyboard and at notes on the desk look the same to the camera. The extra margin below the screen (5° balanced, 8° lenient, 2° strict) trades misses for fewer false alarms. Typing activity from the exam page could tell them apart; the lab has none.
+- **Eye state while looking down is left undecided.** Lids drop when looking down, which looks like closing. With the head lowered more than 20° below its baseline, EYES_CLOSED does not evaluate; GAZE_AWAY covers looking down.
+- **Blinks are undersampled.** At 5 FPS most blinks (100–400 ms) fall between frames, so the blink count is a lower bound. Looks away shorter than about 0.4 s (two frame intervals) do not count as glances.
+- **Head pose and gaze can both fire for one turn.** A head turned far to the side usually takes the gaze outside the screen too, so HEAD_TURNED and GAZE_AWAY can report the same episode; a reviewer sees two records with the same times.
+- **MediaPipe's blendshape names** (`eyeBlinkLeft`, `eyeBlinkRight`) were not checked against which eye they describe. EYES_CLOSED averages both, so it is not affected; leaving one closing eye out of the gaze could pick the wrong eye for a wink.
+- **Head pose distance** comes from MediaPipe's metric space with its default camera field of view, so `distanceCm` is approximate (46 cm for the portrait drawn at 95% of a 720p frame).
 
 ## Scope of Phase 3 results
 

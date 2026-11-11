@@ -45,3 +45,39 @@
   overflow-y: auto;
   font-size: 0.8rem;
 }
+
+/* Attention calibration: a dot the person follows with their eyes, over the whole window. */
+.calibration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #111;
+  color: #f8f9fa;
+}
+
+.calibration-dot {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: #ffc107;
+  box-shadow: 0 0 0 6px rgba(255, 193, 7, 0.25);
+  transition:
+    left 0.25s ease-out,
+    top 0.25s ease-out;
+}
+
+.calibration-dot.sampling {
+  background: #20c997;
+  box-shadow: 0 0 0 6px rgba(32, 201, 151, 0.3);
+}
+
+.calibration-message {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  max-width: 36rem;
+  text-align: center;
+}

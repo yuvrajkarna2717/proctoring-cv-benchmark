@@ -76,7 +76,9 @@ describe("FaceLandmarkerEngine initialization", () => {
       runningMode: "VIDEO",
       numFaces: 3,
       minFaceDetectionConfidence: 0.5,
-      outputFaceBlendshapes: false,
+      // Phase 4 defaults: blink scores and head pose feed the attention rules.
+      outputFaceBlendshapes: true,
+      outputFacialTransformationMatrixes: true,
     });
     expect(tasks[0].modelAssetBuffer.byteLength).toBe(MODEL.bytes);
     expect(tasks[0].calls).toEqual([
@@ -170,9 +172,19 @@ describe("FaceLandmarkerEngine detection", () => {
           box: { x: 0.4, y: 0.2, width: expect.closeTo(0.2, 10), height: expect.closeTo(0.5, 10) },
           truncated: false,
           landmarkCount: LANDMARKS_PER_FACE,
+          primary: true,
         },
       },
-      expect.objectContaining({ type: "FACE", value: 1 }),
+      expect.objectContaining({
+        type: "FACE",
+        value: 1,
+        metadata: expect.objectContaining({ primary: false }),
+      }),
+      // Attention measurements of the larger face; without a transformation matrix in the
+      // result there is no head pose, so no gaze either.
+      expect.objectContaining({ type: "HEAD_POSE", detected: false, value: 0 }),
+      expect.objectContaining({ type: "EYE_GAZE", detected: false, value: 0 }),
+      expect.objectContaining({ type: "EYE_STATE", value: 0 }),
     ]);
     const { payload } = result;
     expect(payload).toMatchObject({

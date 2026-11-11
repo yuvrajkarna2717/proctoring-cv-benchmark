@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 3. MediaPipe Face Landmarker runs in its own worker and feeds the temporal evaluation and violation engine (`NO_FACE`, `MULTIPLE_FACES`). The face verifier (YuNet + SFace on ONNX Runtime Web) runs in a second worker; its embeddings feed enrollment, threshold calibration, and `FACE_MISMATCH` through the main-thread identity layer. The model-free diagnostic engine from Phase 1 stays available (disabled by default) for pipeline measurements.
+Status: Phase 4. MediaPipe Face Landmarker runs in its own worker and feeds the temporal evaluation and violation engine (`NO_FACE`, `MULTIPLE_FACES`). Its head pose, gaze, and eye measurements feed the main-thread attention layer, which judges them against the person's own screen area (`GAZE_AWAY`, `GAZE_AWAY_REPEATED`, `HEAD_TURNED`, `EYES_CLOSED`). The face verifier (YuNet + SFace on ONNX Runtime Web) runs in a second worker; its embeddings feed enrollment, threshold calibration, and `FACE_MISMATCH` through the main-thread identity layer. The model-free diagnostic engine from Phase 1 stays available (disabled by default) for pipeline measurements.
 
 ## Data flow
 
@@ -24,6 +24,8 @@ flowchart LR
   CTRL -- "verifier results" --> ID[IdentityManager<br/>gates, enrollment, comparison, calibration]
   ID <-- "reference + calibration templates" --> IDB[(IndexedDB)]
   ID -- "similarity samples" --> VIOL
+  CTRL -- "HEAD_POSE, EYE_GAZE, EYE_STATE" --> ATT[AttentionManager<br/>baseline, calibration, classifier]
+  ATT -- "attention samples" --> VIOL
   VIOL -- "violation start / end" --> CTRL
   CTRL -- "every result with payload" --> OVL[FaceOverlay canvas]
   CTRL -- snapshot --> UI[React UI]
@@ -33,19 +35,20 @@ The camera preview and the UI run on the main thread. Each engine instance runs 
 
 ## Layers
 
-| Layer                     | Modules                                                                    | Status (Phase 3)                                                                                 |
-| ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Camera capture            | `src/capture/CameraManager.js`                                             | Implemented                                                                                      |
-| Frame clock and capture   | `src/capture/VideoFrameSource.js`                                          | Implemented                                                                                      |
-| Frame scheduling          | `src/capture/FrameScheduler.js`, `src/pipeline/DetectionPipeline.js`       | Implemented                                                                                      |
-| Detection engines         | `src/engines/*`, `src/workers/*`                                           | Diagnostic engine; MediaPipe Face Landmarker (`face/`); face verifier (`verification/`)          |
-| Observation normalization | `src/engines/EngineContract.js` (`Observation`, `validateDetectionResult`) | `FRAME_PROBE`, `FACE_COUNT`, `FACE`, `FACE_EMBEDDING`                                            |
-| Identity                  | `src/identity/*`                                                           | Quality gates, enrollment, comparison with the reference, calibration (FAR/FRR/EER/ROC), storage |
-| Temporal evaluation       | `src/pipeline/TemporalCondition.js`                                        | Implemented                                                                                      |
-| Violation / event engine  | `src/pipeline/ViolationEngine.js`                                          | `NO_FACE`, `MULTIPLE_FACES`, `FACE_MISMATCH`                                                     |
-| Benchmarking and metrics  | `src/benchmark/PerformanceMonitor.js`, `stats.js`, `DeviceProfiler.js`     | Live metrics incl. per-model breakdown, export                                                   |
-| Testing and ground truth  | `src/evaluation/` (planned)                                                | Phase 7                                                                                          |
-| UI                        | `src/app/*`, `src/ui/*`                                                    | Live testing (overlays, violations, engine cards, identity, calibration), environment            |
+| Layer                     | Modules                                                                    | Status (Phase 4)                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Camera capture            | `src/capture/CameraManager.js`                                             | Implemented                                                                                                   |
+| Frame clock and capture   | `src/capture/VideoFrameSource.js`                                          | Implemented                                                                                                   |
+| Frame scheduling          | `src/capture/FrameScheduler.js`, `src/pipeline/DetectionPipeline.js`       | Implemented                                                                                                   |
+| Detection engines         | `src/engines/*`, `src/workers/*`                                           | Diagnostic engine; MediaPipe Face Landmarker (`face/`); face verifier (`verification/`)                       |
+| Observation normalization | `src/engines/EngineContract.js` (`Observation`, `validateDetectionResult`) | `FRAME_PROBE`, `FACE_COUNT`, `FACE`, `FACE_EMBEDDING`, `HEAD_POSE`, `EYE_GAZE`, `EYE_STATE`                   |
+| Identity                  | `src/identity/*`                                                           | Quality gates, enrollment, comparison with the reference, calibration (FAR/FRR/EER/ROC), storage              |
+| Attention                 | `src/attention/*`                                                          | Baseline (calibration or learned), gaze/head/eye classification, presets                                      |
+| Temporal evaluation       | `src/pipeline/TemporalCondition.js`, `GlanceCounter.js`                    | Implemented                                                                                                   |
+| Violation / event engine  | `src/pipeline/ViolationEngine.js`                                          | `NO_FACE`, `MULTIPLE_FACES`, `FACE_MISMATCH`, `GAZE_AWAY`, `GAZE_AWAY_REPEATED`, `HEAD_TURNED`, `EYES_CLOSED` |
+| Benchmarking and metrics  | `src/benchmark/PerformanceMonitor.js`, `stats.js`, `DeviceProfiler.js`     | Live metrics incl. per-model breakdown, export                                                                |
+| Testing and ground truth  | `src/evaluation/` (planned)                                                | Phase 7                                                                                                       |
+| UI                        | `src/app/*`, `src/ui/*`                                                    | Live testing (overlays, violations, engine cards, identity, calibration), environment                         |
 
 `src/app/LabController.js` is the composition root. React components call its methods and render its snapshot through `useSyncExternalStore`; no detection logic lives in components.
 
@@ -125,7 +128,7 @@ All rates and thresholds are configuration (`src/config/detection.config.js`, va
 
 `src/engines/face/FaceLandmarkerEngine.js`, hosted by `src/workers/face.worker.js`. The worker injects the MediaPipe runtime (`mediapipeRuntime.js`); unit tests inject fakes, so the engine logic is tested without WASM.
 
-- **Task**: `@mediapipe/tasks-vision` 1.2.2 (exact version), `FaceLandmarker` in `VIDEO` mode: BlazeFace short-range detector, then Face Mesh V2 (478 landmarks) on each face. `numFaces` 3; detection, presence, and tracking confidence 0.5; blendshapes and transformation matrices off (Phase 4 needs them). The delegate, `numFaces`, and the confidences are editable in the engine card; the outputs are configuration only.
+- **Task**: `@mediapipe/tasks-vision` 1.2.2 (exact version), `FaceLandmarker` in `VIDEO` mode: BlazeFace short-range detector, then Face Mesh V2 (478 landmarks) on each face. `numFaces` 3; detection, presence, and tracking confidence 0.5; blendshapes and transformation matrices on since Phase 4 (attention; no measurable latency cost with a face, see `docs/PHASE4_REPORT.md`). The delegate, `numFaces`, and the confidences are editable in the engine card; the outputs are configuration only.
 - **Delegates**: `GPU` runs the models through WebGL2 on an `OffscreenCanvas` that MediaPipe creates in the worker; `CPU` runs them with XNNPACK in WASM (MediaPipe still creates a WebGL context for image conversion). If creating the GPU task fails and `allowCpuFallback` is on (default), the engine uses CPU and reports why in `status.details.fallbackReason`; the engine card shows it.
 - **Delegate switch**: applied live in the same worker. A new task is created and warmed up while the old task keeps serving frames, then the old task is closed. MediaPipe clears `globalThis.ModuleFactory` after creating a task, so the runtime restores it from the WASM loader's default export before creating a second one. Other options (`numFaces`, confidences, outputs) are applied with `setOptions()` without recreating the task.
 - **Timestamps**: `VIDEO` mode requires strictly increasing timestamps. The engine uses the camera capture time, rounded, and `previous + 1 ms` when a frame is not later than the previous one.
@@ -158,6 +161,44 @@ These defaults are starting points from the plan (NO_FACE 800–1000 ms, MULTIPL
 - **Records**: each violation has `type`, `severity`, `status`, `startedAt`, `confirmedAt`, `endedAt`, `durationMs`, `endReason` (`cleared`, `data-gap`, `stopped`, `disabled`, `reference-changed`), `frames`, `maxFaceCount` (face rules) or `minSimilarity` (FACE_MISMATCH), `pageHidden`, `sourceEngineId`. The history keeps the latest 200; per-rule statistics count violations, durations, end reasons, and runs delayed or suppressed by the cooldown. Starts are logged as warnings ("NO_FACE started (no face for 1.0 s, severity medium)"), ends as info. Reports include the history and the effective rules.
 
 `FACE_MISMATCH` (Phase 3) uses the same machinery with a different input: the main thread's identity layer passes one similarity sample per compared frame (`ViolationEngine.observeIdentity`), and the rule holds when the similarity is below `similarityThreshold` (default 0.363, OpenCV Zoo's SFace default; minimum duration 2000 ms, clear after 1000 ms, cooldown 5000 ms, severity high). Frames that are not compared (no face, failed verification gate, no reference, other recognizer model) send no sample, so they count as missing frames: after `maxGapMs` without a comparison an active mismatch ends with `data-gap`. Deleting or replacing the reference ends it with `reference-changed`. FACE_MISMATCH violations record `minSimilarity` (lowest similarity) instead of `maxFaceCount`.
+
+## Attention: head pose, gaze, eye state
+
+Measuring happens in the face worker; judging happens on the main thread, against the person's own baseline.
+
+**Measurements** (`src/engines/face/faceGeometry.js`, called by `FaceLandmarkerEngine` for the largest face; blendshapes and transformation matrices are on by default). Angles are degrees from the person's point of view: yaw > 0 means to their right (the image's left in an unmirrored frame), pitch > 0 up, roll > 0 toward the right shoulder.
+
+- `HEAD_POSE`: yaw and pitch are the direction of the face's forward axis (the matrix's rotated +Z, camera space X right, Y up, Z toward the camera); roll is the tilt of its up axis. The data layout is detected from where the translation is. MediaPipe 1.2.2 delivers column-major data (checked on a real portrait).
+- `EYE_GAZE`: the iris centre (Face Mesh 468/473; the ring nearer each eye is used) is measured against the midpoint of the eye corners, along the eye line, in eye widths. An eye model turns this and the head pose into the gaze direction relative to the camera: iris radius 0.37 eye widths from the eyeball centre, corners 0.15 eye widths in front of it, eye width foreshortened by the head yaw. The eyes' part is gaze minus head pose. Eyes are weighted by apparent width; an eye with a blink score above 0.5 is left out.
+- `EYE_STATE`: MediaPipe's `eyeBlinkLeft` and `eyeBlinkRight`, and the eye aspect ratio of each eye (two lid distances over the corner distance).
+
+**Baseline** (`src/attention/attentionModel.js`, `attentionCalibration.js`). A profile holds the gaze direction at the screen centre, the extent of the screen to each side, the head pose at the centre, and the open-eye aspect ratio.
+
+- Calibration: a dot at the centre, the four corners (6% in from the edges), and the centre again. For each target there are 800 ms to settle, then 1200 ms of sampling; at least 3 usable frames are needed (one face, gaze measured, blink score below 0.3), and a gaze spread of at most 4°. A target is repeated up to 3 times.
+  - Extents are extrapolated from the corner targets to the viewport edges (× 0.5 / 0.44).
+  - The run fails if any side is below 1° (the eyes did not follow the dot).
+  - It warns when the two centre measurements differ by more than 8°, or when not in full screen.
+  - Frames during calibration are not evaluated by the rules.
+- Learned baseline (no calibration): the median gaze and head pose of usable frames during the first 10 s of detection (at least 20 frames), with the default screen size (±17° horizontally, ±10° vertically). It is learned again at every detection start; a calibration is kept until reset.
+
+**Classification** (`AttentionClassifier`). Every frame becomes a sample with three parts, each with its angles, its excess beyond the limit and the direction, or a reason when undecided:
+
+- Gaze: away when the gaze relative to the screen centre lies outside the screen extent plus `marginDeg` (5°), with `extraDownMarginDeg` (5°) more below. Once away, it is back only `returnMarginDeg` (2°) inside (spatial hysteresis). Undecided without a face, without a baseline, with closed eyes, or with eyes narrower than 12 px.
+- Head: turned when the head pose relative to its baseline exceeds 30° to either side, 20° up, or 25° down (same hysteresis).
+- Eyes: closed when the mean blink score is at least 0.5 and the eye aspect ratio is at most 0.6 of the person's open value. Undecided with the head lowered more than 20° below its baseline (lids drop when looking down).
+
+**Rules** (`ViolationEngine.observeAttention`). Each rule reads its part of the sample; an undecided part is skipped like a missing frame, so a blink neither ends nor extends a look away.
+
+| Rule                 | Condition                                                                                 | Balanced default                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `GAZE_AWAY`          | gaze away on every evaluated frame                                                        | 500 ms, clear 300 ms, cooldown 2 s, medium → high after 8 s (user-tuned) |
+| `GAZE_AWAY_REPEATED` | `minGlances` looks away of at least `minGlanceMs` within `windowMs`, toward the same side | 4 looks ≥ 400 ms in 30 s, cooldown 15 s, medium                          |
+| `HEAD_TURNED`        | head turned on every evaluated frame                                                      | 1500 ms, clear 600 ms, cooldown 3 s, medium → high after 8 s             |
+| `EYES_CLOSED`        | eyes closed on every evaluated frame                                                      | 2000 ms, clear 400 ms, cooldown 5 s, low → medium after 10 s             |
+
+`GlanceCounter` counts a look once, when it reaches `minGlanceMs`, with its most frequent direction. An on-screen sample or a gap longer than `maxGapMs` ends a look. Attention violations record `maxExcessDeg` (or `glanceCount`, `maxClosure`), the direction at the largest measure, and the baseline (`calibration` or `learned`). Escalation raises `severity` once and keeps `initialSeverity` and `escalatedAt`. Replacing or resetting the baseline ends active attention violations with `baseline-changed`.
+
+**Presets** (`src/attention/presets.js`, `LabController.applyAttentionPreset`). Lenient, balanced, and strict each set the margins, the head limits, and the timings and counts of the four rules; on/off and severity stay as they are. Editing a tolerance or a rule's timing marks the preset `custom`.
 
 ## Face verification engine (YuNet + SFace)
 

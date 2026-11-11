@@ -102,12 +102,18 @@ export const MonitorConfigSchema = z
 
 /**
  * Violation types. NO_FACE and MULTIPLE_FACES are evaluated from FACE_COUNT observations of the
- * violations source engine; FACE_MISMATCH from identity comparisons (see IdentityConfigSchema).
+ * violations source engine; FACE_MISMATCH from identity comparisons (see IdentityConfigSchema);
+ * GAZE_AWAY, GAZE_AWAY_REPEATED, HEAD_TURNED, and EYES_CLOSED from attention samples (see
+ * AttentionConfigSchema).
  */
 export const VIOLATION_TYPES = /** @type {const} */ ([
   "NO_FACE",
   "MULTIPLE_FACES",
   "FACE_MISMATCH",
+  "GAZE_AWAY",
+  "GAZE_AWAY_REPEATED",
+  "HEAD_TURNED",
+  "EYES_CLOSED",
 ]);
 
 /** @typedef {typeof VIOLATION_TYPES[number]} ViolationType */
@@ -145,10 +151,49 @@ export const FaceMismatchRuleSchema = z
   })
   .strict();
 
+const escalationFields = {
+  /**
+   * An active violation that lasts this long is raised to `escalatedSeverity` (null: never).
+   * A short episode stays at the rule's severity, so a reviewer can tell a long one apart.
+   */
+  escalateAfterMs: z.number().int().min(0).max(600_000).nullable(),
+  escalatedSeverity: z.enum(["low", "medium", "high"]),
+};
+
+/** GAZE_AWAY, HEAD_TURNED, EYES_CLOSED: evaluated from the attention samples (see attention). */
+export const AttentionRuleSchema = z
+  .object({ ...violationRuleFields, ...escalationFields })
+  .strict();
+
+export const GazeRepeatedRuleSchema = z
+  .object({
+    ...violationRuleFields,
+    /** Sliding window in which glances are counted. */
+    windowMs: z.number().int().min(1000).max(600_000),
+    /** Glances in the window at which the condition holds. */
+    minGlances: z.number().int().min(2).max(100),
+    /**
+     * A glance is an off-screen run of at least this length (shorter runs are noise or a
+     * blink); it counts when it reaches this length, also if it then becomes a GAZE_AWAY.
+     */
+    minGlanceMs: z.number().int().min(0).max(60_000),
+    /**
+     * Count only glances toward the most frequent direction (left, right, up, or down).
+     * Repeated looks at one place (notes, a second screen) are the pattern of interest;
+     * looking around while thinking spreads over directions.
+     */
+    sameDirection: z.boolean(),
+  })
+  .strict();
+
 export const VIOLATION_RULE_SCHEMAS = Object.freeze({
   NO_FACE: NoFaceRuleSchema,
   MULTIPLE_FACES: MultipleFacesRuleSchema,
   FACE_MISMATCH: FaceMismatchRuleSchema,
+  GAZE_AWAY: AttentionRuleSchema,
+  GAZE_AWAY_REPEATED: GazeRepeatedRuleSchema,
+  HEAD_TURNED: AttentionRuleSchema,
+  EYES_CLOSED: AttentionRuleSchema,
 });
 
 export const ViolationsConfigSchema = z
@@ -168,6 +213,10 @@ export const ViolationsConfigSchema = z
         NO_FACE: NoFaceRuleSchema,
         MULTIPLE_FACES: MultipleFacesRuleSchema,
         FACE_MISMATCH: FaceMismatchRuleSchema,
+        GAZE_AWAY: AttentionRuleSchema,
+        GAZE_AWAY_REPEATED: GazeRepeatedRuleSchema,
+        HEAD_TURNED: AttentionRuleSchema,
+        EYES_CLOSED: AttentionRuleSchema,
       })
       .strict(),
   })
@@ -175,8 +224,104 @@ export const ViolationsConfigSchema = z
 
 /** @typedef {z.infer<typeof ViolationsConfigSchema>} ViolationsConfig */
 /**
- * @typedef {z.infer<typeof NoFaceRuleSchema> & { minFaces?: number, similarityThreshold?: number }} ViolationRuleConfig
+ * @typedef {z.infer<typeof NoFaceRuleSchema> & { minFaces?: number, similarityThreshold?: number,
+ *   escalateAfterMs?: number | null, escalatedSeverity?: 'low' | 'medium' | 'high',
+ *   windowMs?: number, minGlances?: number, minGlanceMs?: number, sameDirection?: boolean }} ViolationRuleConfig
  */
+
+/** Strictness presets of the attention rules; "custom" after any manual change. */
+export const ATTENTION_PRESETS = /** @type {const} */ (["lenient", "balanced", "strict", "custom"]);
+
+/**
+ * How attention samples are classified. All angles are degrees, from the person's point of
+ * view (see src/engines/face/faceGeometry.js), and relative to their own baseline: the
+ * calibration, or until then a baseline learned from the first seconds of detection.
+ */
+export const AttentionConfigSchema = z
+  .object({
+    /** Engine instance whose HEAD_POSE, EYE_GAZE, and EYE_STATE observations are used. */
+    sourceEngineId: z.string().min(1),
+    preset: z.enum(ATTENTION_PRESETS),
+    /**
+     * Screen extent around the baseline gaze direction when there is no calibration, as seen
+     * from the person: a 14–15" laptop at 50–60 cm spans about ±17° horizontally and 20°
+     * vertically. The calibration replaces these with the measured corners.
+     */
+    defaultScreen: z
+      .object({
+        leftDeg: z.number().min(1).max(90),
+        rightDeg: z.number().min(1).max(90),
+        upDeg: z.number().min(1).max(90),
+        downDeg: z.number().min(1).max(90),
+      })
+      .strict(),
+    /** Tolerance added around the screen on every side. */
+    marginDeg: z.number().min(0).max(45),
+    /** Extra tolerance below the screen (keyboard, glancing down while thinking). */
+    extraDownMarginDeg: z.number().min(0).max(45),
+    /**
+     * Spatial hysteresis: after leaving the screen area, the gaze counts as back only once it
+     * is this far inside again, so jitter on the edge does not split one look into many.
+     */
+    returnMarginDeg: z.number().min(0).max(20),
+    /** Head rotation from the baseline head pose at which HEAD_TURNED's condition holds. */
+    head: z
+      .object({
+        maxYawDeg: z.number().min(1).max(90),
+        maxPitchUpDeg: z.number().min(1).max(90),
+        maxPitchDownDeg: z.number().min(1).max(90),
+      })
+      .strict(),
+    eyes: z
+      .object({
+        /** Mean MediaPipe blink score of both eyes at which the eyes count as closed. */
+        closedBlinkScore: z.number().min(0).max(1),
+        /**
+         * The eye aspect ratio must also be at most this fraction of the person's open-eye
+         * value (from the baseline), so naturally narrow eyes do not count as closed.
+         */
+        closedEarRatio: z.number().min(0).max(1),
+        /**
+         * Lids drop when looking down, which looks like closing. With the head this far below
+         * its baseline, the eye state is left undecided (GAZE_AWAY covers looking down).
+         */
+        undecidedHeadDownDeg: z.number().min(0).max(90),
+        /** Gaze is undecided when the narrower eye is smaller than this (face too far). */
+        minEyeWidthPx: z.number().min(0).max(500),
+        /** Closures shorter than this are counted as blinks. */
+        blinkMaxMs: z.number().int().min(0).max(5000),
+      })
+      .strict(),
+    baseline: z
+      .object({
+        /** Without a calibration, the baseline is learned over this long after start. */
+        learnMs: z.number().int().min(1000).max(600_000),
+        /** Usable frames needed before the learned baseline is used. */
+        minSamples: z.number().int().min(1).max(10_000),
+      })
+      .strict(),
+    calibration: z
+      .object({
+        /** Time after a target appears before samples are taken (eyes and head move there). */
+        settleMs: z.number().int().min(0).max(10_000),
+        /** Sampling time per target. */
+        sampleMs: z.number().int().min(100).max(10_000),
+        /** Usable frames needed per target. */
+        minSamples: z.number().int().min(1).max(100),
+        /** Standard deviation of the gaze per target above which the target is repeated. */
+        maxSpreadDeg: z.number().min(0.1).max(30),
+        /** Attempts per target before the calibration fails. */
+        maxAttempts: z.number().int().min(1).max(10),
+        /** Targets are placed this fraction of the viewport in from its edges. */
+        insetRatio: z.number().min(0).max(0.4),
+      })
+      .strict(),
+    /** Recent samples kept for the live gaze chart. */
+    trailSize: z.number().int().min(10).max(5000),
+  })
+  .strict();
+
+/** @typedef {z.infer<typeof AttentionConfigSchema>} AttentionConfig */
 
 /**
  * Requirements a face embedding must meet before it is used. Every value is a starting point;
@@ -261,6 +406,7 @@ export const LabConfigSchema = z
     engines: z.array(EngineInstanceSchema).min(1),
     violations: ViolationsConfigSchema,
     identity: IdentityConfigSchema,
+    attention: AttentionConfigSchema,
   })
   .strict()
   .superRefine((config, context) => {
@@ -278,6 +424,7 @@ export const LabConfigSchema = z
     for (const path of [
       ["violations", "sourceEngineId"],
       ["identity", "sourceEngineId"],
+      ["attention", "sourceEngineId"],
     ]) {
       const id = /** @type {string} */ (
         /** @type {Record<string, any>} */ (config)[path[0]][path[1]]
@@ -324,4 +471,12 @@ export function validateViolationRule(type, input) {
  */
 export function validateQualityGate(input, label = "quality gate") {
   return parseConfig(QualityGateSchema, input, label);
+}
+
+/**
+ * @param {unknown} input
+ * @returns {AttentionConfig}
+ */
+export function validateAttentionConfig(input) {
+  return parseConfig(AttentionConfigSchema, input, "attention configuration");
 }

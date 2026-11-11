@@ -8,6 +8,7 @@ import {
   deferred,
   flush,
 } from "../helpers/fakes.js";
+import { attentionResult, frame } from "../helpers/attention.js";
 
 const TRACK = {
   label: "Fake camera",
@@ -367,6 +368,104 @@ describe("LabController violations", () => {
     expect(violations.history).toMatchObject([
       { type: "NO_FACE", status: "ended", endReason: "stopped" },
     ]);
+  });
+});
+
+/** Face-landmarker stand-in with attention observations; the gaze yaw is set per test. */
+class FakeAttentionEngine extends FakeEngine {
+  static gazeYaw = 0;
+
+  async onDetect(_frame, meta, timer) {
+    timer.start("inference");
+    return {
+      observations: attentionResult(
+        frame({ at: meta.captureTime, gazeYaw: FakeAttentionEngine.gazeYaw }),
+      ).observations,
+    };
+  }
+}
+
+describe("LabController attention", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeAttentionEngine.gazeYaw = 0;
+  });
+
+  it("learns a baseline, raises GAZE_AWAY against it, applies presets, and ends violations on a baseline reset", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => createFakeFrame()),
+    );
+    const config = structuredClone(DEFAULT_LAB_CONFIG);
+    config.engines.find((engine) => engine.id === "face-verifier").scheduler.enabled = false;
+    config.attention.baseline = { learnMs: 1000, minSamples: 3 };
+    config.violations.rules.GAZE_AWAY = { ...config.violations.rules.GAZE_AWAY, minDurationMs: 0 };
+    const { factory } = createFakeWorkerFactory({
+      ...FAKE_LOADERS,
+      "face-landmarker": async () => FakeAttentionEngine,
+    });
+    const controller = createController(createFakeCamera(), { createWorker: factory, config });
+    const results = [];
+    controller.subscribeResults((notice) => results.push(notice));
+    const video = createFakeVideo();
+    await controller.startCamera(video);
+    expect(() =>
+      controller.startAttentionCalibration({ width: 100, height: 100, fullscreen: false }),
+    ).toThrow(expect.objectContaining({ code: "DETECTION_NOT_RUNNING" }));
+    controller.startDetection();
+    const nextFrame = async () => {
+      const count = results.length;
+      await flush(220); // the face engine is due again (5 FPS)
+      video.deliverFrame();
+      await vi.waitFor(() => expect(results).toHaveLength(count + 1));
+    };
+
+    while (!controller.buildSnapshot().attention.profile) await nextFrame();
+    expect(controller.buildSnapshot().attention.profile.source).toBe("learned");
+    expect(controller.buildSnapshot().violations.active).toEqual([]);
+
+    FakeAttentionEngine.gazeYaw = 40; // far to the person's right
+    await nextFrame();
+    let snapshot = controller.buildSnapshot();
+    expect(snapshot.attention.last.gaze).toMatchObject({ state: "away", direction: "right" });
+    expect(snapshot.violations.active).toMatchObject([
+      {
+        type: "GAZE_AWAY",
+        direction: "right",
+        baseline: "learned",
+        sourceEngineId: "face-landmarker",
+      },
+    ]);
+    expect(
+      snapshot.log.some((entry) =>
+        /GAZE_AWAY started \(gaze up to [\d.]+° outside the screen area toward the right for [\d.]+ s, severity medium, uncalibrated\)$/.test(
+          entry.message,
+        ),
+      ),
+    ).toBe(true);
+
+    controller.applyAttentionPreset("strict");
+    snapshot = controller.buildSnapshot();
+    expect(snapshot.attention.config).toMatchObject({ preset: "strict", marginDeg: 3 });
+    expect(snapshot.violations.rules.find((r) => r.type === "GAZE_AWAY").config).toMatchObject({
+      minDurationMs: 300,
+      enabled: true,
+    });
+    controller.updateViolationRule("GAZE_AWAY", { severity: "high" });
+    expect(controller.buildSnapshot().attention.config.preset).toBe("strict");
+    controller.updateViolationRule("GAZE_AWAY", { minDurationMs: 0 });
+    expect(controller.buildSnapshot().attention.config.preset).toBe("custom");
+
+    await nextFrame();
+    expect(controller.buildSnapshot().violations.active).toMatchObject([{ type: "GAZE_AWAY" }]);
+    controller.resetAttentionBaseline();
+    snapshot = controller.buildSnapshot();
+    expect(snapshot.violations.active).toEqual([]);
+    expect(snapshot.violations.history.at(-1)).toMatchObject({
+      type: "GAZE_AWAY",
+      endReason: "baseline-changed",
+    });
+    expect(controller.buildReport().config.attention).toMatchObject({ preset: "custom" });
   });
 });
 

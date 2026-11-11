@@ -18,9 +18,9 @@ export const FaceLandmarkerConfigSchema = z
     minFaceDetectionConfidence: z.number().min(0).max(1),
     minFacePresenceConfidence: z.number().min(0).max(1),
     minTrackingConfidence: z.number().min(0).max(1),
-    /** 52 blendshape scores per face (used from Phase 4). */
+    /** 52 blendshape scores per face; the blink scores feed EYE_STATE and EYES_CLOSED. */
     outputFaceBlendshapes: z.boolean(),
-    /** 4×4 face transformation matrix per face (head pose, Phase 4). */
+    /** 4×4 face transformation matrix per face; HEAD_POSE and EYE_GAZE need it. */
     outputFacialTransformationMatrixes: z.boolean(),
     /** Send the 478 landmark coordinates per face to the main thread (overlay). */
     includeLandmarks: z.boolean(),
@@ -42,8 +42,9 @@ export const DEFAULT_FACE_LANDMARKER_CONFIG = Object.freeze({
   minFaceDetectionConfidence: 0.5,
   minFacePresenceConfidence: 0.5,
   minTrackingConfidence: 0.5,
-  outputFaceBlendshapes: false,
-  outputFacialTransformationMatrixes: false,
+  // Phase 4: blink scores and head pose for the attention rules.
+  outputFaceBlendshapes: true,
+  outputFacialTransformationMatrixes: true,
   includeLandmarks: true,
   warmup: true,
 });

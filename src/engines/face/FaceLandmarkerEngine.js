@@ -3,6 +3,7 @@ import { LabError, describeError } from "../../utils/errors.js";
 import { parseConfig } from "../../utils/validation.js";
 import { BaseDetectionEngine } from "../BaseDetectionEngine.js";
 import { FaceLandmarkerConfigSchema } from "./faceLandmarkerConfig.js";
+import { blendshapeScore, eyeMeasures, gazeAngles, headPoseFromMatrix } from "./faceGeometry.js";
 
 const MODEL = MODEL_ASSETS["mp-face-landmarker"];
 
@@ -155,6 +156,7 @@ export class FaceLandmarkerEngine extends BaseDetectionEngine {
     const faces = result.faceLandmarks.map((landmarks) =>
       summarizeFace(landmarks, includeLandmarks),
     );
+    const primary = largestFaceIndex(faces);
     /** @type {import('../EngineContract.js').Observation[]} */
     const observations = [
       {
@@ -167,8 +169,14 @@ export class FaceLandmarkerEngine extends BaseDetectionEngine {
         type: "FACE",
         detected: true,
         value: index,
-        metadata: { box: face.box, truncated: face.truncated, landmarkCount: face.landmarkCount },
+        metadata: {
+          box: face.box,
+          truncated: face.truncated,
+          landmarkCount: face.landmarkCount,
+          primary: index === primary,
+        },
       })),
+      ...(primary === -1 ? [] : attentionObservations(result, primary, meta, this.#options)),
     ];
     /** @type {FaceLandmarksPayload} */
     const payload = {
@@ -349,4 +357,133 @@ export function summarizeFace(landmarks, includeLandmarks) {
 /** @param {number} value */
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * The face with the largest box, the one attention measurements describe; -1 without faces.
+ *
+ * @param {Array<{ box: FaceBox }>} faces
+ */
+export function largestFaceIndex(faces) {
+  let best = -1;
+  let bestArea = -1;
+  faces.forEach(({ box }, index) => {
+    const area = box.width * box.height;
+    if (area > bestArea) {
+      best = index;
+      bestArea = area;
+    }
+  });
+  return best;
+}
+
+/** A blink score above this makes that eye's iris position unreliable. */
+const IRIS_BLINK_LIMIT = 0.5;
+
+/**
+ * HEAD_POSE, EYE_GAZE, and EYE_STATE observations of one face (measurements only; whether they
+ * mean "looking away" is decided on the main thread against the person's calibration).
+ *
+ * - HEAD_POSE needs the transformation matrix; `detected` is false without it.
+ * - EYE_GAZE: gaze direction relative to the camera (head and eyes together) from the iris
+ *   rings and the head pose, and the eyes' part of it. An eye whose blink score is above 0.5
+ *   is left out; `detected` is false when no eye is usable.
+ * - EYE_STATE: blink blendshapes (MediaPipe's names) and the eye aspect ratio of each eye.
+ *
+ * @param {MediaPipeFaceResult} result
+ * @param {number} faceIndex
+ * @param {{ width: number, height: number }} image
+ * @param {import('./faceLandmarkerConfig.js').FaceLandmarkerConfig} options
+ * @returns {import('../EngineContract.js').Observation[]}
+ */
+export function attentionObservations(result, faceIndex, image, options) {
+  const landmarks = result.faceLandmarks[faceIndex];
+  const flat = new Float32Array(landmarks.length * 3);
+  landmarks.forEach(({ x, y, z }, index) => {
+    flat[index * 3] = x;
+    flat[index * 3 + 1] = y;
+    flat[index * 3 + 2] = z;
+  });
+  const matrix = options.outputFacialTransformationMatrixes
+    ? result.facialTransformationMatrixes?.[faceIndex]
+    : undefined;
+  const pose = matrix ? headPoseFromMatrix(matrix.data) : null;
+  const categories = options.outputFaceBlendshapes
+    ? result.faceBlendshapes?.[faceIndex]?.categories
+    : undefined;
+  const blendshapes = categories
+    ? { names: categories.map((c) => c.categoryName), scores: categories.map((c) => c.score) }
+    : undefined;
+  const eyes = eyeMeasures(flat, image.width, image.height);
+
+  const blinkLeft = blendshapeScore(blendshapes, "eyeBlinkLeft");
+  const blinkRight = blendshapeScore(blendshapes, "eyeBlinkRight");
+  /** @type {Array<'left' | 'right'>} */
+  const skip = [];
+  if (blinkLeft !== null && blinkLeft > IRIS_BLINK_LIMIT) skip.push("left");
+  if (blinkRight !== null && blinkRight > IRIS_BLINK_LIMIT) skip.push("right");
+  const gaze = eyes && pose ? gazeAngles(eyes, pose, { skip }) : null;
+
+  return [
+    {
+      type: "HEAD_POSE",
+      detected: pose !== null,
+      value: faceIndex,
+      metadata: pose
+        ? {
+            yawDeg: round(pose.yawDeg, 2),
+            pitchDeg: round(pose.pitchDeg, 2),
+            rollDeg: round(pose.rollDeg, 2),
+            distanceCm: pose.distanceCm === null ? null : round(pose.distanceCm, 1),
+            layout: pose.layout,
+          }
+        : { reason: matrix ? "malformed matrix" : "transformation matrix not requested" },
+    },
+    {
+      type: "EYE_GAZE",
+      detected: gaze !== null,
+      value: faceIndex,
+      metadata: gaze
+        ? {
+            yawDeg: round(gaze.yawDeg, 2),
+            pitchDeg: round(gaze.pitchDeg, 2),
+            eyeYawDeg: round(gaze.eyeYawDeg, 2),
+            eyePitchDeg: round(gaze.eyePitchDeg, 2),
+            irisX: round(gaze.irisX, 4),
+            irisY: round(gaze.irisY, 4),
+            eyes: 2 - skip.length,
+            eyeWidthPx: eyes ? round(Math.min(eyes.left.widthPx, eyes.right.widthPx), 1) : null,
+          }
+        : {
+            reason: !pose
+              ? "no head pose"
+              : !eyes
+                ? "no eye landmarks"
+                : skip.length === 2
+                  ? "both eyes closing"
+                  : "no iris landmarks",
+          },
+    },
+    {
+      type: "EYE_STATE",
+      detected: eyes !== null,
+      value: faceIndex,
+      metadata: {
+        blinkLeft: blinkLeft === null ? null : round(blinkLeft, 3),
+        blinkRight: blinkRight === null ? null : round(blinkRight, 3),
+        earLeft: eyes ? round(eyes.left.ear, 4) : null,
+        earRight: eyes ? round(eyes.right.ear, 4) : null,
+        interocularPx: eyes ? round(eyes.interocularPx, 1) : null,
+      },
+    },
+  ];
+}
+
+/**
+ * @param {number} value
+ * @param {number} digits
+ */
+function round(value, digits) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
 }
