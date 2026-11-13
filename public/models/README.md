@@ -1,6 +1,6 @@
 # Model files
 
-Model binaries are not committed. Download them with:
+Model binaries are committed so static hosts such as Vercel can serve them. To re-download and hash-verify them:
 
 ```powershell
 npm run fetch-models

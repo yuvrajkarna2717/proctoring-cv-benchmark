@@ -9,9 +9,8 @@ dist-ssr
 coverage
 *.local
 
-# Model binaries are downloaded and hash-verified by a script, never committed.
-public/models/*
-!public/models/README.md
+# Model binaries are committed so static hosts (e.g. Vercel) can serve them.
+# `npm run fetch-models` re-downloads and hash-verifies them.
 
 # Editor directories and files
 .vscode/*
