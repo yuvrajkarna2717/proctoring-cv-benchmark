@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LAB_CONFIG } from "../../src/config/detection.config.js";
-import { GlanceCounter } from "../../src/pipeline/GlanceCounter.js";
 import { ViolationEngine } from "../../src/pipeline/ViolationEngine.js";
 
 /**
@@ -158,63 +157,6 @@ describe("GAZE_AWAY", () => {
   });
 });
 
-describe("GAZE_AWAY_REPEATED", () => {
-  /** A short look away: `frames` away samples, then 3 on-screen samples. */
-  const glance = (engine, at, frames, direction = "down") => {
-    const next = feed(engine, at, frames, { gaze: "away", direction });
-    return feed(engine, next, 3, { gaze: "on" });
-  };
-
-  it("fires on the fourth short look toward the same side within 30 s", () => {
-    const { engine, events } = createEngine();
-    let at = 0;
-    for (let n = 0; n < 3; n += 1) at = glance(engine, at, 3);
-    expect(events).toEqual([]);
-    glance(engine, at, 3);
-    const start = events.find((e) => e.type === "violation-start");
-    expect(start.violation).toMatchObject({
-      type: "GAZE_AWAY_REPEATED",
-      glanceCount: 4,
-      direction: "down",
-    });
-    // Each look (3 frames, 400 ms) was too short for GAZE_AWAY (500 ms).
-    expect(events.filter((e) => e.violation.type === "GAZE_AWAY")).toEqual([]);
-  });
-
-  it("does not count looks spread over directions when sameDirection is on", () => {
-    const { engine, events } = createEngine();
-    let at = 0;
-    for (const direction of ["left", "right", "up", "down", "left", "right"]) {
-      at = glance(engine, at, 3, direction);
-    }
-    expect(events).toEqual([]);
-  });
-
-  it("counts them with sameDirection off", () => {
-    const { engine, events } = createEngine({ GAZE_AWAY_REPEATED: { sameDirection: false } });
-    let at = 0;
-    for (const direction of ["left", "right", "up", "down"]) at = glance(engine, at, 3, direction);
-    expect(events.map((e) => e.violation.type)).toEqual(["GAZE_AWAY_REPEATED"]);
-  });
-
-  it("does not count looks shorter than minGlanceMs", () => {
-    const { engine, events } = createEngine();
-    let at = 0;
-    // Two away frames span 200 ms, less than the 400 ms default.
-    for (let n = 0; n < 8; n += 1) at = glance(engine, at, 2);
-    expect(events).toEqual([]);
-  });
-
-  it("forgets looks older than the window", () => {
-    const { engine, events } = createEngine();
-    let at = 0;
-    for (let n = 0; n < 3; n += 1) at = glance(engine, at, 3);
-    at = feed(engine, at, 160, { gaze: "on" }); // 32 s on screen
-    glance(engine, at, 3);
-    expect(events).toEqual([]);
-  });
-});
-
 describe("HEAD_TURNED and EYES_CLOSED", () => {
   it("HEAD_TURNED reads the head state, independent of the gaze", () => {
     const { engine, events } = createEngine();
@@ -236,26 +178,5 @@ describe("HEAD_TURNED and EYES_CLOSED", () => {
     const { engine, events } = createEngine({ EYES_CLOSED: { enabled: false } });
     feed(engine, 0, 20, { eyes: "closed" });
     expect(events).toEqual([]);
-  });
-});
-
-describe("GlanceCounter", () => {
-  const rule = { windowMs: 10_000, minGlances: 2, minGlanceMs: 400, sameDirection: true };
-
-  it("counts a run once, when it reaches minGlanceMs, with its most frequent direction", () => {
-    const counter = new GlanceCounter({ maxGapMs: 2000 });
-    counter.update(0, "away", "left", rule);
-    counter.update(200, "away", "down", rule);
-    counter.update(400, "away", "down", rule);
-    counter.update(600, "away", "down", rule);
-    expect(counter.glances).toEqual([{ at: 0, direction: "down" }]);
-  });
-
-  it("ends a run on a gap longer than maxGapMs", () => {
-    const counter = new GlanceCounter({ maxGapMs: 2000 });
-    counter.update(0, "away", "left", rule);
-    counter.update(200, "away", "left", rule);
-    counter.update(5000, "away", "left", rule);
-    expect(counter.glances).toEqual([]);
   });
 });

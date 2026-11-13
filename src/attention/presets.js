@@ -8,7 +8,6 @@
  * "strict" reports; it only needs more of it:
  * - a look away (GAZE_AWAY) after 3.5 / 0.5 / 0.3 s (balanced as tuned by the user on a real
  *   webcam: 500 ms, clear after 300 ms, cooldown 2000 ms),
- * - repeated short looks toward one direction (GAZE_AWAY_REPEATED): 6 / 4 / 3 in 30 s,
  * - a turned head (HEAD_TURNED) and closed eyes (EYES_CLOSED) after longer or shorter times.
  *
  * All values are starting points to be checked against annotated recordings (Phases 7–8).
@@ -19,7 +18,7 @@
  * @property {string} description
  * @property {{ marginDeg: number, extraDownMarginDeg: number, returnMarginDeg: number,
  *   head: { maxYawDeg: number, maxPitchUpDeg: number, maxPitchDownDeg: number } }} attention
- * @property {Record<'GAZE_AWAY' | 'GAZE_AWAY_REPEATED' | 'HEAD_TURNED' | 'EYES_CLOSED',
+ * @property {Record<'GAZE_AWAY' | 'HEAD_TURNED' | 'EYES_CLOSED',
  *   Record<string, unknown>>} rules
  */
 
@@ -27,7 +26,7 @@
 export const ATTENTION_PRESET_VALUES = Object.freeze({
   lenient: Object.freeze({
     description:
-      "Wide tolerance and long durations. For open-book or typing-heavy exams; reports only clear, sustained, or frequently repeated looks away.",
+      "Wide tolerance and long durations. For open-book or typing-heavy exams; reports only clear or sustained looks away.",
     attention: {
       marginDeg: 8,
       extraDownMarginDeg: 8,
@@ -41,7 +40,6 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
         cooldownMs: 3000,
         escalateAfterMs: 12_000,
       },
-      GAZE_AWAY_REPEATED: { windowMs: 30_000, minGlances: 6, minGlanceMs: 600 },
       HEAD_TURNED: {
         minDurationMs: 2500,
         clearAfterMs: 800,
@@ -58,7 +56,7 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
   }),
   balanced: Object.freeze({
     description:
-      "The default. Blinks and looking down at the keyboard pass; a look outside the screen area of 0.5 s, four looks toward the same side within 30 s, or a clearly turned head are reported.",
+      "The default. Blinks and looking down at the keyboard pass; a look outside the screen area of 0.5 s or a clearly turned head is reported.",
     attention: {
       marginDeg: 5,
       extraDownMarginDeg: 5,
@@ -73,7 +71,6 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
         cooldownMs: 2000,
         escalateAfterMs: 8000,
       },
-      GAZE_AWAY_REPEATED: { windowMs: 30_000, minGlances: 4, minGlanceMs: 400 },
       HEAD_TURNED: {
         minDurationMs: 1500,
         clearAfterMs: 600,
@@ -105,7 +102,6 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
         cooldownMs: 1500,
         escalateAfterMs: 5000,
       },
-      GAZE_AWAY_REPEATED: { windowMs: 30_000, minGlances: 3, minGlanceMs: 200 },
       HEAD_TURNED: {
         minDurationMs: 1000,
         clearAfterMs: 500,
@@ -123,12 +119,7 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
 });
 
 /** The attention rule types a preset sets. */
-export const PRESET_RULE_TYPES = /** @type {const} */ ([
-  "GAZE_AWAY",
-  "GAZE_AWAY_REPEATED",
-  "HEAD_TURNED",
-  "EYES_CLOSED",
-]);
+export const PRESET_RULE_TYPES = /** @type {const} */ (["GAZE_AWAY", "HEAD_TURNED", "EYES_CLOSED"]);
 
 /**
  * @param {string} name

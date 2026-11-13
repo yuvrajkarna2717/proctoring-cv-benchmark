@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 5. A model-free image-quality engine (third worker kind in use) measures lighting and sharpness of the frame and of the face region the face landmarker found last; the main thread assesses them (`LIGHTING_ISSUE`, `LOW_IMAGE_QUALITY`) and notes image problems on other violations. MediaPipe Face Landmarker runs in its own worker and feeds the temporal evaluation and violation engine (`NO_FACE`, `MULTIPLE_FACES`). Its head pose, gaze, and eye measurements feed the main-thread attention layer, which judges them against the person's own screen area (`GAZE_AWAY`, `GAZE_AWAY_REPEATED`, `HEAD_TURNED`, `EYES_CLOSED`). The face verifier (YuNet + SFace on ONNX Runtime Web) runs in a second worker; its embeddings feed enrollment, threshold calibration, and `FACE_MISMATCH` through the main-thread identity layer. The model-free diagnostic engine from Phase 1 stays available (disabled by default) for pipeline measurements.
+Status: Phase 6. Four COCO object detectors (EfficientDet-Lite0 and Lite2 on MediaPipe, NanoDet-Plus and YOLOX-S on ONNX Runtime Web, two worker kinds) run at 1 FPS; the main thread counts their detections per model, and the chosen one feeds `PHONE_DETECTED`. A model-free image-quality engine (third worker kind in use) measures lighting and sharpness of the frame and of the face region the face landmarker found last; the main thread assesses them (`LIGHTING_ISSUE`) and notes image problems on other violations. MediaPipe Face Landmarker runs in its own worker and feeds the temporal evaluation and violation engine (`NO_FACE`, `MULTIPLE_FACES`). Its head pose, gaze, and eye measurements feed the main-thread attention layer, which judges them against the person's own screen area (`GAZE_AWAY`, `HEAD_TURNED`, `EYES_CLOSED`). The face verifier (YuNet + SFace on ONNX Runtime Web) runs in a second worker; its embeddings feed enrollment, threshold calibration, and `FACE_MISMATCH` through the main-thread identity layer. The model-free diagnostic engine from Phase 1 stays available (disabled by default) for pipeline measurements.
 
 ## Data flow
 
@@ -16,6 +16,8 @@ flowchart LR
   CLI -- "postMessage (transfer)" --> W2["diagnostic.worker<br/>DiagnosticEngine"]
   CLI -- "postMessage (transfer) + face hint" --> W4["quality.worker<br/>ImageQualityEngine"]
   W4 -- "FRAME_QUALITY, FACE_QUALITY" --> PIPE
+  CLI -- "postMessage (transfer), native size" --> W5["objects-mediapipe.worker / objects-onnx.worker<br/>EfficientDet-Lite (CPU) / NanoDet-Plus, YOLOX-S (WASM or WebGPU)"]
+  W5 -- "OBJECTS, OBJECT + boxes" --> PIPE
   W1 -- "DetectionResult + landmarks (transferred)" --> PIPE
   W3 -- "DetectionResult + embedding (transferred)" --> PIPE
   W2 -- DetectionResult --> PIPE
@@ -30,8 +32,10 @@ flowchart LR
   ATT -- "attention samples" --> VIOL
   CTRL -- "quality results" --> QM[QualityMonitor<br/>lighting and image reasons]
   QM -- "quality samples" --> VIOL
+  CTRL -- "object results" --> OM[ObjectMonitor<br/>per-model counts]
+  OM -- "source engine's samples" --> VIOL
   VIOL -- "violation start / end" --> CTRL
-  CTRL -- "every result with payload" --> OVL[FaceOverlay canvas]
+  CTRL -- "every result with payload" --> OVL[FaceOverlay, ObjectOverlay canvases]
   CTRL -- snapshot --> UI[React UI]
 ```
 
@@ -39,21 +43,21 @@ The camera preview and the UI run on the main thread. Each engine instance runs 
 
 ## Layers
 
-| Layer                     | Modules                                                                    | Status (Phase 4)                                                                                                                                     |
-| ------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Camera capture            | `src/capture/CameraManager.js`                                             | Implemented                                                                                                                                          |
-| Frame clock and capture   | `src/capture/VideoFrameSource.js`                                          | Implemented                                                                                                                                          |
-| Frame scheduling          | `src/capture/FrameScheduler.js`, `src/pipeline/DetectionPipeline.js`       | Implemented                                                                                                                                          |
-| Detection engines         | `src/engines/*`, `src/workers/*`                                           | Diagnostic engine; MediaPipe Face Landmarker (`face/`); face verifier (`verification/`)                                                              |
-| Observation normalization | `src/engines/EngineContract.js` (`Observation`, `validateDetectionResult`) | `FRAME_PROBE`, `FACE_COUNT`, `FACE`, `FACE_EMBEDDING`, `HEAD_POSE`, `EYE_GAZE`, `EYE_STATE`                                                          |
-| Identity                  | `src/identity/*`                                                           | Quality gates, enrollment, comparison with the reference, calibration (FAR/FRR/EER/ROC), storage                                                     |
-| Attention                 | `src/attention/*`                                                          | Baseline (calibration or learned), gaze/head/eye classification, presets                                                                             |
-| Image quality             | `src/engines/quality/*`, `src/quality/*`                                   | Frame and face statistics in a worker; lighting and image assessment on the main thread                                                              |
-| Temporal evaluation       | `src/pipeline/TemporalCondition.js`, `GlanceCounter.js`                    | Implemented                                                                                                                                          |
-| Violation / event engine  | `src/pipeline/ViolationEngine.js`                                          | `NO_FACE`, `MULTIPLE_FACES`, `FACE_MISMATCH`, `GAZE_AWAY`, `GAZE_AWAY_REPEATED`, `HEAD_TURNED`, `EYES_CLOSED`, `LIGHTING_ISSUE`, `LOW_IMAGE_QUALITY` |
-| Benchmarking and metrics  | `src/benchmark/PerformanceMonitor.js`, `stats.js`, `DeviceProfiler.js`     | Live metrics incl. per-model breakdown, export                                                                                                       |
-| Testing and ground truth  | `src/evaluation/` (planned)                                                | Phase 7                                                                                                                                              |
-| UI                        | `src/app/*`, `src/ui/*`                                                    | Live testing (overlays, violations, engine cards, identity, calibration), environment                                                                |
+| Layer                     | Modules                                                                    | Status (Phase 4)                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Camera capture            | `src/capture/CameraManager.js`                                             | Implemented                                                                                                                 |
+| Frame clock and capture   | `src/capture/VideoFrameSource.js`                                          | Implemented                                                                                                                 |
+| Frame scheduling          | `src/capture/FrameScheduler.js`, `src/pipeline/DetectionPipeline.js`       | Implemented                                                                                                                 |
+| Detection engines         | `src/engines/*`, `src/workers/*`                                           | Diagnostic engine; MediaPipe Face Landmarker (`face/`); face verifier (`verification/`)                                     |
+| Observation normalization | `src/engines/EngineContract.js` (`Observation`, `validateDetectionResult`) | `FRAME_PROBE`, `FACE_COUNT`, `FACE`, `FACE_EMBEDDING`, `HEAD_POSE`, `EYE_GAZE`, `EYE_STATE`                                 |
+| Identity                  | `src/identity/*`                                                           | Quality gates, enrollment, comparison with the reference, calibration (FAR/FRR/EER/ROC), storage                            |
+| Attention                 | `src/attention/*`                                                          | Baseline (calibration or learned), gaze/head/eye classification, presets                                                    |
+| Image quality             | `src/engines/quality/*`, `src/quality/*`                                   | Frame and face statistics in a worker; lighting and image assessment on the main thread                                     |
+| Temporal evaluation       | `src/pipeline/TemporalCondition.js`                                        | Implemented                                                                                                                 |
+| Violation / event engine  | `src/pipeline/ViolationEngine.js`                                          | `NO_FACE`, `MULTIPLE_FACES`, `FACE_MISMATCH`, `GAZE_AWAY`, `HEAD_TURNED`, `EYES_CLOSED`, `LIGHTING_ISSUE`, `PHONE_DETECTED` |
+| Benchmarking and metrics  | `src/benchmark/PerformanceMonitor.js`, `stats.js`, `DeviceProfiler.js`     | Live metrics incl. per-model breakdown, export                                                                              |
+| Testing and ground truth  | `src/evaluation/` (planned)                                                | Phase 7                                                                                                                     |
+| UI                        | `src/app/*`, `src/ui/*`                                                    | Live testing (overlays, violations, engine cards, identity, calibration), environment                                       |
 
 `src/app/LabController.js` is the composition root. React components call its methods and render its snapshot through `useSyncExternalStore`; no detection logic lives in components.
 
@@ -163,7 +167,7 @@ These defaults are starting points from the plan (NO_FACE 800–1000 ms, MULTIPL
 - **Gaps**: if two frames of the source engine are more than `maxGapMs` (2000 ms) apart, or the source stays silent that long (checked every UI refresh), nothing is known about that time: an active violation ends at its last known frame with reason `data-gap`, without cooldown, and a pending run is dropped. Unloading or restarting the source engine ends it the same way.
 - **Detection state**: violations are evaluated only while detection runs. Stopping detection ends active violations with reason `stopped`; results of frames still in flight are ignored. Starting detection clears the violation history; resetting metrics does not.
 - **Hidden page**: a violation that overlaps a period with the page hidden is flagged `pageHidden`, because browsers deliver few or no frames then. Evaluation is not paused.
-- **Records**: each violation has `type`, `severity`, `status`, `startedAt`, `confirmedAt`, `endedAt`, `durationMs`, `endReason` (`cleared`, `data-gap`, `stopped`, `disabled`, `reference-changed`), `frames`, `maxFaceCount` (face rules) or `minSimilarity` (FACE_MISMATCH), `pageHidden`, `sourceEngineId`. The history keeps the latest 200; per-rule statistics count violations, durations, end reasons, and runs delayed or suppressed by the cooldown. Starts are logged as warnings ("NO_FACE started (no face for 1.0 s, severity medium)"), ends as info. Reports include the history and the effective rules.
+- **Records**: each violation has `type`, `severity`, `status`, `startedAt`, `confirmedAt`, `endedAt`, `durationMs`, `endReason` (`cleared`, `data-gap`, `stopped`, `disabled`, `reference-changed`, `baseline-changed`, `source-changed`), `frames`, `maxFaceCount` (face rules) or `minSimilarity` (FACE_MISMATCH), `pageHidden`, `sourceEngineId`. The history keeps the latest 200; per-rule statistics count violations, durations, end reasons, and runs delayed or suppressed by the cooldown. Starts are logged as warnings ("NO_FACE started (no face for 1.0 s, severity medium)"), ends as info. Reports include the history and the effective rules.
 
 `FACE_MISMATCH` (Phase 3) uses the same machinery with a different input: the main thread's identity layer passes one similarity sample per compared frame (`ViolationEngine.observeIdentity`), and the rule holds when the similarity is below `similarityThreshold` (default 0.363, OpenCV Zoo's SFace default; minimum duration 2000 ms, clear after 1000 ms, cooldown 5000 ms, severity high). Frames that are not compared (no face, failed verification gate, no reference, other recognizer model) send no sample, so they count as missing frames: after `maxGapMs` without a comparison an active mismatch ends with `data-gap`. Deleting or replacing the reference ends it with `reference-changed`. FACE_MISMATCH violations record `minSimilarity` (lowest similarity) instead of `maxFaceCount`.
 
@@ -194,16 +198,15 @@ Measuring happens in the face worker; judging happens on the main thread, agains
 
 **Rules** (`ViolationEngine.observeAttention`). Each rule reads its part of the sample; an undecided part is skipped like a missing frame, so a blink neither ends nor extends a look away.
 
-| Rule                 | Condition                                                                                 | Balanced default                                                         |
-| -------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `GAZE_AWAY`          | gaze away on every evaluated frame                                                        | 500 ms, clear 300 ms, cooldown 2 s, medium → high after 8 s (user-tuned) |
-| `GAZE_AWAY_REPEATED` | `minGlances` looks away of at least `minGlanceMs` within `windowMs`, toward the same side | 4 looks ≥ 400 ms in 30 s, cooldown 15 s, medium                          |
-| `HEAD_TURNED`        | head turned on every evaluated frame                                                      | 1500 ms, clear 600 ms, cooldown 3 s, medium → high after 8 s             |
-| `EYES_CLOSED`        | eyes closed on every evaluated frame                                                      | 2000 ms, clear 400 ms, cooldown 5 s, low → medium after 10 s             |
+| Rule          | Condition                            | Balanced default                                                         |
+| ------------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| `GAZE_AWAY`   | gaze away on every evaluated frame   | 500 ms, clear 300 ms, cooldown 2 s, medium → high after 8 s (user-tuned) |
+| `HEAD_TURNED` | head turned on every evaluated frame | 1500 ms, clear 600 ms, cooldown 3 s, medium → high after 8 s             |
+| `EYES_CLOSED` | eyes closed on every evaluated frame | 2000 ms, clear 400 ms, cooldown 5 s, low → medium after 10 s             |
 
-`GlanceCounter` counts a look once, when it reaches `minGlanceMs`, with its most frequent direction. An on-screen sample or a gap longer than `maxGapMs` ends a look. Attention violations record `maxExcessDeg` (or `glanceCount`, `maxClosure`), the direction at the largest measure, and the baseline (`calibration` or `learned`). Escalation raises `severity` once and keeps `initialSeverity` and `escalatedAt`. Replacing or resetting the baseline ends active attention violations with `baseline-changed`.
+Attention violations record `maxExcessDeg` (or `maxClosure`), the direction at the largest measure, and the baseline (`calibration` or `learned`). Escalation raises `severity` once and keeps `initialSeverity` and `escalatedAt`. Replacing or resetting the baseline ends active attention violations with `baseline-changed`.
 
-**Presets** (`src/attention/presets.js`, `LabController.applyAttentionPreset`). Lenient, balanced, and strict each set the margins, the head limits, and the timings and counts of the four rules; on/off and severity stay as they are. Editing a tolerance or a rule's timing marks the preset `custom`.
+**Presets** (`src/attention/presets.js`, `LabController.applyAttentionPreset`). Lenient, balanced, and strict each set the margins, the head limits, and the timings of the three rules; on/off and severity stay as they are. Editing a tolerance or a rule's timing marks the preset `custom`.
 
 ## Image quality
 
@@ -217,7 +220,34 @@ Measuring happens in the face worker; judging happens on the main thread, agains
 
 **Assessment** (`src/quality/qualityModel.js`, `QualityMonitor` on the main thread; limits in the lab configuration's `imageQuality`, editable in the Image quality panel). Each sample has a lighting part and an image part, each `ok`, `issue` with reasons, or `undecided` with the reason. Face-based checks need a measured face; without one, only `dark`/`too-bright` from the frame mean and `low-resolution` are decided. Reasons and default limits are listed in `docs/PHASE5_REPORT.md`.
 
-**Rules.** `LIGHTING_ISSUE` and `LOW_IMAGE_QUALITY` read the two parts (undecided samples are skipped): 5000 ms minimum, clear after 3000 ms, cooldown 30 s, severity low, and their own gap limit (`maxGapMs` 5000 per rule, instead of the violations' 2000 ms). They record `reasons`, most frequent first. Every other violation records `imageIssues`: the reasons of the latest quality sample if it is within 3 s of the violation's start (`[]` when the image was fine, `null` when there was no recent sample).
+**Rules.** `LIGHTING_ISSUE` reads the lighting part (undecided samples are skipped): 5000 ms minimum, clear after 3000 ms, cooldown 30 s, severity low, and its own gap limit (`maxGapMs` 5000, instead of the violations' 2000 ms). It records `reasons`, most frequent first. The image part (blur, face size, resolution) raises no violation; it is shown in the Image quality panel and noted on other violations. Every other violation records `imageIssues`: the reasons of the latest quality sample if it is within 3 s of the violation's start (`[]` when the image was fine, `null` when there was no recent sample).
+
+## Object detection
+
+**Engines.** Two kinds, four default instances, each in its own worker: `objects-effdet-lite0` and `objects-effdet-lite2` (kind `mp-object-detector`, `src/engines/objects/MediapipeObjectDetectorEngine.js`, worker `objects-mediapipe.worker.js`), `objects-nanodet` and `objects-yolox` (kind `ort-object-detector`, `OnnxObjectDetectorEngine.js`, worker `objects-onnx.worker.js`). All run at 1 FPS, priority 1, yield to the face engines (at most 500 ms), and get frames at native resolution. Only `objects-effdet-lite2` is enabled by default; it is the rules' source.
+
+- **Zoom pass** (`tiles.js`, option `zoom`, default `tiles` except YOLOX-S). Besides the whole frame, the detector runs on overlapping squares cut from the full-resolution frame (`cropFrame.js`, `createImageBitmap` with resize) and scaled to the model input: `tiles` adds two squares as tall as the frame for 16:9, `fine` six of 3/4 frame height, with at least 20% overlap between neighbours. Boxes are mapped back to the frame and merged: of two same-label boxes the lower-scored is dropped when their IoU exceeds 0.5 or when 80% of it lies inside the other. Crops are closed after each run.
+- MediaPipe: Tasks `ObjectDetector` in IMAGE mode (every crop is an independent image) on the CPU delegate (the GPU delegate gave wrong results with the int8 files). MediaPipe resizes and runs NMS itself; crops are 320 px (Lite0) or 448 px (Lite2). The engine asks for every result above min(0.1, `minScore`) and normalizes the pixel boxes.
+- ONNX Runtime: the frame is letterboxed on an `OffscreenCanvas` (`letterboxCanvas.js`) and read back. It becomes a planar float tensor in BGR order and runs on WASM (default) or WebGPU. Decoding and NMS run in JavaScript (`onnxDetectors.js`, pure functions):
+  - NanoDet-Plus: 416 px centred letterbox; mean/std normalization; three heads (strides 8/16/32) with sigmoid class scores and 8-bin box distributions (softmax expectation × stride from the anchor centre); class-agnostic NMS at IoU 0.6.
+  - YOLOX-S: 640 px top-left letterbox padded with 114; raw 0–255 values; (offset + grid) × stride and exp(size) × stride; score = objectness × class; per-class NMS at 0.5.
+  - Boxes are mapped back through the letterbox to the frame.
+- Both kinds verify the model's SHA-256 after loading and report `preprocessMs`, `inferenceMs`, `postprocessMs`.
+- Shared output (`objectObservations.js`): detections at or above `minScore` (0.3) of the configured classes, at most `maxDetections` (10), as one `OBJECTS` summary (count, best score per label) and one `OBJECT` per detection (label, score, normalized box), plus an `object-detections` payload for the overlay.
+
+**Main thread.** `ObjectMonitor` (`src/objects/objectMonitor.js`) turns each object result into a sample (`best` scores per label). It keeps per-engine counts: frames, frames that reached each object rule's limit, highest score per label, and the last `historySize` samples. It passes the samples of `objects.sourceEngineId` to the violation engine. `LabController.setObjectSource` switches that engine in the monitor and the rules together.
+
+**Rules** (`ViolationEngine.observeObjects`). Each object rule keeps the hits of its last `window` samples, where a hit is the frame's best score for `label` at or above `minScore`. The condition holds while the hits reach `votes`; it then runs through a `TemporalCondition` like the other rules (`minDurationMs` 0, `clearAfterMs` 0 by default).
+
+| Rule             | Label        | Default                                                            |
+| ---------------- | ------------ | ------------------------------------------------------------------ |
+| `PHONE_DETECTED` | `cell phone` | on; ≥ 0.5 on 2 of the last 3 samples; cooldown 10 s; severity high |
+
+- A gap longer than `maxGapMs` (5 s) empties the window and ends an active violation with `data-gap`. Unloading or restarting the source engine does the same.
+- Switching the source ends active object violations with `source-changed` and empties the windows.
+- Object violations record `label` and `maxScore` (the highest score on the frames where the rule held).
+
+**UI.** Objects panel (`src/ui/objects/ObjectsPanel.jsx`: per-model counts, latency, last detections, "Use" to make a model the source), `ObjectOverlay` (boxes per enabled model in its colour, rule labels drawn thicker), engine cards (delegate or provider, reporting score, maximum detections, NMS IoU).
 
 ## Face verification engine (YuNet + SFace)
 

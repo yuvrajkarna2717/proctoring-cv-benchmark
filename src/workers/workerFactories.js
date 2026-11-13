@@ -15,4 +15,8 @@ export const WORKER_FACTORIES = Object.freeze({
     new Worker(new URL("./verification.worker.js", import.meta.url), { type: "module" }),
   "image-quality": () =>
     new Worker(new URL("./quality.worker.js", import.meta.url), { type: "module" }),
+  "mp-object-detector": () =>
+    new Worker(new URL("./objects-mediapipe.worker.js", import.meta.url), { type: "module" }),
+  "ort-object-detector": () =>
+    new Worker(new URL("./objects-onnx.worker.js", import.meta.url), { type: "module" }),
 });

@@ -1,5 +1,9 @@
 import { DiagnosticConfigSchema } from "./diagnostic/diagnosticConfig.js";
 import { FaceLandmarkerConfigSchema } from "./face/faceLandmarkerConfig.js";
+import {
+  MediapipeObjectDetectorConfigSchema,
+  OnnxObjectDetectorConfigSchema,
+} from "./objects/objectDetectorConfig.js";
 import { ImageQualityConfigSchema } from "./quality/imageQualityConfig.js";
 import { FaceVerifierConfigSchema } from "./verification/faceVerifierConfig.js";
 
@@ -16,6 +20,8 @@ export const ENGINE_CONFIG_SCHEMAS = Object.freeze({
   "face-landmarker": FaceLandmarkerConfigSchema,
   "face-verifier": FaceVerifierConfigSchema,
   "image-quality": ImageQualityConfigSchema,
+  "mp-object-detector": MediapipeObjectDetectorConfigSchema,
+  "ort-object-detector": OnnxObjectDetectorConfigSchema,
 });
 
 /** @typedef {keyof typeof ENGINE_CONFIG_SCHEMAS} EngineKind */

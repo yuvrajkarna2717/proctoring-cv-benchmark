@@ -3,7 +3,7 @@
  * usable, is the image sharp and large enough? Pure logic, no browser APIs.
  *
  * Image quality is an environment problem, not misconduct. The assessment is reported as its
- * own rules (LIGHTING_ISSUE, LOW_IMAGE_QUALITY, severity low by default) and stamped on other
+ * own rule (LIGHTING_ISSUE, severity low by default) and stamped on other
  * violations (`imageIssues`), so a reviewer can see that a GAZE_AWAY or FACE_MISMATCH happened
  * in a dark or blurry image, where those measurements are less reliable.
  *

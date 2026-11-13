@@ -100,6 +100,51 @@ export const MODEL_ASSETS = Object.freeze({
     pruneUnusedGraphInputs: true,
     foldWeightDequantization: true,
   }),
+  // Phase 6 object detectors (COCO 2017, 80 classes). MediaPipe's hosted files carry TFLite
+  // ObjectDetector metadata (labels, normalization); they match the MD5 Google Cloud Storage
+  // reports (last modified 2023-04-27).
+  "mp-effdet-lite0-int8": Object.freeze({
+    id: "mp-effdet-lite0-int8",
+    version: "int8/1",
+    file: "efficientdet_lite0.tflite",
+    url: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite",
+    bytes: 4_602_795,
+    sha256: "0720bf247bd76e6594ea28fa9c6f7c5242be774818997dbbeffc4da460c723bb",
+    license: "Apache-2.0",
+  }),
+  "mp-effdet-lite2-int8": Object.freeze({
+    id: "mp-effdet-lite2-int8",
+    version: "int8/1",
+    file: "efficientdet_lite2.tflite",
+    url: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/int8/1/efficientdet_lite2.tflite",
+    bytes: 7_515_971,
+    sha256: "b3f50554cb0ea559e90328845f7d9ba4d13c8bff372914d24e06bc8bb72fa896",
+    license: "Apache-2.0",
+  }),
+  "ocv-nanodet-plus": Object.freeze({
+    id: "ocv-nanodet-plus",
+    version: "2022nov (NanoDet-Plus-m-1.5x 416)",
+    file: "object_detection_nanodet_2022nov.onnx",
+    url: openCvZoo(
+      "510899a2a0adb8c25957915fd030d66dbd553919",
+      "object_detection_nanodet/object_detection_nanodet_2022nov.onnx",
+    ),
+    bytes: 3_800_954,
+    sha256: "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+    license: "Apache-2.0",
+  }),
+  "ocv-yolox-s": Object.freeze({
+    id: "ocv-yolox-s",
+    version: "2022nov (YOLOX-S 640)",
+    file: "object_detection_yolox_2022nov.onnx",
+    url: openCvZoo(
+      "0b263e423d012606b83d1f81238d11c177da2b9c",
+      "object_detection_yolox/object_detection_yolox_2022nov.onnx",
+    ),
+    bytes: 35_858_002,
+    sha256: "c5c2d13e59ae883e6af3b45daea64af4833a4951c92d116ec270d9ddbe998063",
+    license: "Apache-2.0",
+  }),
 });
 
 /**

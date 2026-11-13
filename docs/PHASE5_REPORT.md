@@ -1,5 +1,7 @@
 # Phase 5 report — Image quality
 
+> **Change, 2026-11-12:** `LOW_IMAGE_QUALITY` was removed at the user's request. The image checks (blur, face size, resolution) still run: they are shown in the Image quality panel and noted on other violations as `imageIssues`, but they no longer raise a violation. `LIGHTING_ISSUE` is unchanged.
+
 Date: 2026-11-11. Deliverable: a model-free image-quality engine at 1 FPS. It measures lighting, contrast, and sharpness of the frame and of the face region, using the face landmarker's latest face box. Two new rules report lasting problems: `LIGHTING_ISSUE` and `LOW_IMAGE_QUALITY`. Other violations now record the image problems present when they started. Verified with unit tests, mutation checks, a public-domain portrait with darkened, brightened, blurred, and backlit variants, and the browser smoke test. Thresholds against real webcams and rooms are still open.
 
 ## Design

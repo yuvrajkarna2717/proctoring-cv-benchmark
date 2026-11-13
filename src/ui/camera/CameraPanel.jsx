@@ -5,20 +5,27 @@ import Card from "react-bootstrap/Card";
 import Form from "react-bootstrap/Form";
 import { describeError } from "../../utils/errors.js";
 import { useLabController, useLabSnapshot } from "../common/labContext.js";
+import { objectEngineViews } from "../objects/objectEngines.js";
 import { FaceOverlay } from "./FaceOverlay.jsx";
+import { ObjectOverlay } from "./ObjectOverlay.jsx";
 
-/** Camera selection, start/stop, and the live preview with the face overlay. */
+/** Camera selection, start/stop, and the live preview with the face and object overlays. */
 export function CameraPanel() {
   const controller = useLabController();
-  const { camera, consentAt, violations, identity } = useLabSnapshot();
+  const { camera, consentAt, violations, identity, engines } = useLabSnapshot();
   const videoRef = useRef(/** @type {HTMLVideoElement | null} */ (null));
   const [deviceId, setDeviceId] = useState("");
   const [mirrored, setMirrored] = useState(true);
   const [overlay, setOverlay] = useState(true);
   const [landmarks, setLandmarks] = useState(true);
+  const [objectBoxes, setObjectBoxes] = useState(true);
   const active = camera.status === "active";
   const starting = camera.status === "starting";
   const settings = camera.track?.settings;
+  const objectEngines = objectEngineViews(engines).filter(({ engine }) => engine.scheduler.enabled);
+  const watchedLabels = violations.rules
+    .filter((rule) => rule.input === "objects" && rule.config.enabled)
+    .map((rule) => String(rule.config.label));
 
   const start = () => {
     const video = videoRef.current;
@@ -90,6 +97,14 @@ export function CameraPanel() {
             disabled={!overlay}
             onChange={(event) => setLandmarks(event.target.checked)}
           />
+          <Form.Check
+            type="switch"
+            id="camera-object-boxes"
+            label="Object boxes"
+            className="small"
+            checked={objectBoxes}
+            onChange={(event) => setObjectBoxes(event.target.checked)}
+          />
         </div>
         <div className="video-frame">
           <video ref={videoRef} muted playsInline className={mirrored ? "mirrored" : undefined} />
@@ -102,6 +117,19 @@ export function CameraPanel() {
                 engineId={engineId}
                 mirrored={mirrored}
                 showLandmarks={landmarks}
+              />
+            ))}
+          {objectBoxes &&
+            active &&
+            objectEngines.map(({ engine, color, name }) => (
+              <ObjectOverlay
+                key={engine.id}
+                videoRef={videoRef}
+                engineId={engine.id}
+                name={name}
+                color={color}
+                mirrored={mirrored}
+                highlight={watchedLabels}
               />
             ))}
           {!active && <div className="video-placeholder small">Camera off</div>}

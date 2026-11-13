@@ -1,7 +1,43 @@
 import { DEFAULT_FACE_LANDMARKER_CONFIG } from "../engines/face/faceLandmarkerConfig.js";
+import {
+  DEFAULT_MEDIAPIPE_OBJECT_CONFIG,
+  DEFAULT_ONNX_OBJECT_CONFIG,
+} from "../engines/objects/objectDetectorConfig.js";
 import { DEFAULT_IMAGE_QUALITY_CONFIG } from "../engines/quality/imageQualityConfig.js";
 import { DEFAULT_FACE_VERIFIER_CONFIG } from "../engines/verification/faceVerifierConfig.js";
 import { validateLabConfig } from "./schema.js";
+
+/**
+ * An object-detection engine instance: 1 FPS, lowest priority, yielding to the face engines.
+ * Frames arrive at native resolution: the whole-frame pass is scaled down to the model input in
+ * the worker, and the zoom pass crops the full-resolution frame.
+ *
+ * @param {string} id
+ * @param {'mp-object-detector' | 'ort-object-detector'} kind
+ * @param {string} label
+ * @param {Record<string, unknown>} engineConfig
+ * @param {boolean} [enabled]
+ */
+function objectEngine(id, kind, label, engineConfig, enabled = false) {
+  return {
+    id,
+    kind,
+    label,
+    description: `COCO object detector (${label}) for PHONE_DETECTED; reports phones, books, screens, input devices, and people.`,
+    scheduler: {
+      enabled,
+      targetFps: 1,
+      priority: 1,
+      maxFrameAgeMs: 1500,
+      yieldToHigherPriority: true,
+      maxYieldMs: 500,
+    },
+    capture: { maxInputWidth: null },
+    engineConfig,
+    initTimeoutMs: 60_000,
+    requestTimeoutMs: 15_000,
+  };
+}
 
 /**
  * Default lab configuration. Every threshold and rate is a starting point for benchmarking, not
@@ -14,7 +50,11 @@ import { validateLabConfig } from "./schema.js";
  * - `face-verifier`: YuNet + SFace on ONNX Runtime Web at 2 FPS, lower priority, yielding to
  *   the face landmarker. Its embeddings feed enrollment, calibration, and identity checks.
  * - `image-quality`: model-free lighting and sharpness statistics at 1 FPS, priority 3, using
- *   the face landmarker's latest face box. Feeds LIGHTING_ISSUE and LOW_IMAGE_QUALITY.
+ *   the face landmarker's latest face box. Feeds LIGHTING_ISSUE.
+ * - `objects-*`: COCO object detectors at 1 FPS, priority 1 (EfficientDet-Lite0/Lite2 on
+ *   MediaPipe, NanoDet-Plus/YOLOX-S on ONNX Runtime Web). Only `objects-effdet-lite2` is on by
+ *   default, with the zoom pass; it feeds PHONE_DETECTED. The others are for
+ *   comparison.
  * - `probe-high`, `probe-low`: model-free diagnostic probes from Phase 1, disabled by default.
  *   `probe-high` measures pipeline overhead (5 FPS, no work); `probe-low` emulates a slow
  *   object detector (1 FPS, low priority, 250 ms of blocking work per frame, 640 px input).
@@ -78,7 +118,7 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
         kind: "image-quality",
         label: "Image quality",
         description:
-          "Lighting, contrast, and sharpness of the frame and of the face region (face box from the face landmarker), 1 FPS. Feeds LIGHTING_ISSUE and LOW_IMAGE_QUALITY.",
+          "Lighting, contrast, and sharpness of the frame and of the face region (face box from the face landmarker), 1 FPS. Feeds LIGHTING_ISSUE.",
         scheduler: {
           enabled: true,
           targetFps: 1,
@@ -93,6 +133,33 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
         initTimeoutMs: 30_000,
         requestTimeoutMs: 10_000,
       },
+      // Phase 6 object detectors, one instance per model so they can be compared side by side.
+      // Only the rules' source (objects.sourceEngineId) is on by default.
+      objectEngine("objects-effdet-lite0", "mp-object-detector", "EfficientDet-Lite0 (int8)", {
+        ...DEFAULT_MEDIAPIPE_OBJECT_CONFIG,
+        model: "mp-effdet-lite0-int8",
+      }),
+      // The default source: MediaPipe EfficientDet-Lite2 with the zoom pass (whole frame plus two
+      // full-resolution squares). In the webcam-like scenes it found the phone at every size where
+      // the other models lost it, at about 0.7 s per frame (docs/PHASE6_REPORT.md, "Zoom pass").
+      objectEngine(
+        "objects-effdet-lite2",
+        "mp-object-detector",
+        "EfficientDet-Lite2 (int8)",
+        { ...DEFAULT_MEDIAPIPE_OBJECT_CONFIG, model: "mp-effdet-lite2-int8" },
+        true,
+      ),
+      objectEngine("objects-nanodet", "ort-object-detector", "NanoDet-Plus (416)", {
+        ...DEFAULT_ONNX_OBJECT_CONFIG,
+        model: "ocv-nanodet-plus",
+        nmsThreshold: 0.6,
+      }),
+      // No zoom pass by default: YOLOX-S takes 0.5–0.6 s per pass on WASM.
+      objectEngine("objects-yolox", "ort-object-detector", "YOLOX-S (640)", {
+        ...DEFAULT_ONNX_OBJECT_CONFIG,
+        model: "ocv-yolox-s",
+        zoom: "off",
+      }),
       {
         id: "probe-high",
         kind: "diagnostic",
@@ -177,19 +244,6 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
           escalateAfterMs: 8000,
           escalatedSeverity: "high",
         },
-        // Reports the pattern of repeated looks toward one place (notes, a second screen), also
-        // when each look is also a GAZE_AWAY.
-        GAZE_AWAY_REPEATED: {
-          enabled: true,
-          minDurationMs: 0,
-          clearAfterMs: 0,
-          cooldownMs: 15_000,
-          severity: "medium",
-          windowMs: 30_000,
-          minGlances: 4,
-          minGlanceMs: 400,
-          sameDirection: true,
-        },
         HEAD_TURNED: {
           enabled: true,
           minDurationMs: 1500,
@@ -209,7 +263,7 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
           escalatedSeverity: "medium",
         },
         // Image quality (Phase 5) at 1 FPS: an environment problem, not misconduct, so severity
-        // low and long durations; momentary blur from movement or an exposure change passes.
+        // low and long durations; a momentary exposure change passes.
         LIGHTING_ISSUE: {
           enabled: true,
           minDurationMs: 5000,
@@ -218,12 +272,18 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
           severity: "low",
           maxGapMs: 5000,
         },
-        LOW_IMAGE_QUALITY: {
+        // Object rules (Phase 6) at 1 FPS: 2 of the last 3 samples (the plan's starting value),
+        // so one false detection does not start a violation and one miss does not end it.
+        PHONE_DETECTED: {
           enabled: true,
-          minDurationMs: 5000,
-          clearAfterMs: 3000,
-          cooldownMs: 30_000,
-          severity: "low",
+          minDurationMs: 0,
+          clearAfterMs: 0,
+          cooldownMs: 10_000,
+          severity: "high",
+          label: "cell phone",
+          minScore: 0.5,
+          votes: 2,
+          window: 3,
           maxGapMs: 5000,
         },
       },
@@ -255,8 +315,10 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
       },
       trailSize: 150,
     },
-    // Limits for LIGHTING_ISSUE and LOW_IMAGE_QUALITY (Phase 5). Face luma limits match the
-    // identity enrollment gate (60–200), so "lighting ok" means good enough to enroll.
+    // Image-quality limits (Phase 5): `lighting` feeds LIGHTING_ISSUE; `image` (blur, face size,
+    // resolution) is shown in the Image quality panel and noted on other violations
+    // (`imageIssues`). Face luma limits match the identity enrollment gate (60–200), so
+    // "lighting ok" means good enough to enroll.
     imageQuality: {
       sourceEngineId: "image-quality",
       faceSourceEngineId: "face-landmarker",
@@ -279,6 +341,8 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
       },
       historySize: 120,
     },
+    // Object detection (Phase 6): which instance feeds PHONE_DETECTED.
+    objects: { sourceEngineId: "objects-effdet-lite2", historySize: 120 },
     // Starting values. The Identity panel shows each measured value next to its limit.
     identity: {
       sourceEngineId: "face-verifier",

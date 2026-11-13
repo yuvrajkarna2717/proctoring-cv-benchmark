@@ -28,8 +28,8 @@ function createEngine() {
 const starts = (events, type) =>
   events.filter((e) => e.type === "violation-start" && e.violation.type === type);
 
-describe("LIGHTING_ISSUE and LOW_IMAGE_QUALITY", () => {
-  it("start after 5 s of issues at 1 FPS, with the reasons seen, most frequent first", () => {
+describe("LIGHTING_ISSUE", () => {
+  it("starts after 5 s of issues at 1 FPS, with the reasons seen, most frequent first", () => {
     const { engine, events } = createEngine();
     for (let at = 0; at <= 5000; at += 1000) {
       engine.observeQuality(
@@ -45,36 +45,43 @@ describe("LIGHTING_ISSUE and LOW_IMAGE_QUALITY", () => {
       sourceEngineId: "image-quality",
       imageIssues: null,
     });
-    expect(starts(events, "LOW_IMAGE_QUALITY")).toEqual([]);
+    expect(events.filter((e) => e.type === "violation-start")).toHaveLength(1);
   });
 
-  it("ignore shorter problems (motion blur, an exposure change)", () => {
+  it("ignores shorter problems (an exposure change)", () => {
     const { engine, events } = createEngine();
     for (let at = 0; at <= 3000; at += 1000)
-      engine.observeQuality(qualitySample(at, { image: ["blurry"] }));
+      engine.observeQuality(qualitySample(at, { lighting: ["dark"] }));
     engine.observeQuality(qualitySample(4000));
     expect(events).toEqual([]);
   });
 
-  it("skip undecided samples and use their own gap limit (5 s) instead of the face rules' 2 s", () => {
+  it("raises no violation for image problems (blur, small face): they are context only", () => {
     const { engine, events } = createEngine();
-    engine.observeQuality(qualitySample(0, { image: ["blurry"] }));
-    engine.observeQuality(qualitySample(1000, { image: null })); // no face: skipped
-    engine.observeQuality(qualitySample(4000, { image: ["blurry"] })); // 3 s gap: still one run
-    engine.observeQuality(qualitySample(5000, { image: ["blurry"] }));
-    expect(starts(events, "LOW_IMAGE_QUALITY")[0].violation).toMatchObject({
+    for (let at = 0; at <= 10_000; at += 1000) {
+      engine.observeQuality(qualitySample(at, { image: ["blurry", "face-too-small"] }));
+    }
+    expect(events).toEqual([]);
+  });
+
+  it("skips undecided samples and uses its own gap limit (5 s) instead of the face rules' 2 s", () => {
+    const { engine, events } = createEngine();
+    engine.observeQuality(qualitySample(0, { lighting: ["dark"] }));
+    engine.observeQuality(qualitySample(1000, { lighting: null })); // no face: skipped
+    engine.observeQuality(qualitySample(4000, { lighting: ["dark"] })); // 3 s gap: still one run
+    engine.observeQuality(qualitySample(5000, { lighting: ["dark"] }));
+    expect(starts(events, "LIGHTING_ISSUE")[0].violation).toMatchObject({
       startedAt: 0,
-      reasons: ["blurry"],
+      reasons: ["dark"],
     });
-    engine.observeQuality(qualitySample(11_500, { image: ["blurry"] })); // 6.5 s gap
+    engine.observeQuality(qualitySample(11_500, { lighting: ["dark"] })); // 6.5 s gap
     expect(events.find((e) => e.type === "violation-end").violation).toMatchObject({
-      type: "LOW_IMAGE_QUALITY",
+      type: "LIGHTING_ISSUE",
       endReason: "data-gap",
       endedAt: 5000,
     });
   });
 });
-
 describe("image issues on other violations", () => {
   const away = (at) => ({
     at,

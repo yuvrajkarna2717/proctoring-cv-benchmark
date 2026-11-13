@@ -103,20 +103,19 @@ export const MonitorConfigSchema = z
 /**
  * Violation types. NO_FACE and MULTIPLE_FACES are evaluated from FACE_COUNT observations of the
  * violations source engine; FACE_MISMATCH from identity comparisons (see IdentityConfigSchema);
- * GAZE_AWAY, GAZE_AWAY_REPEATED, HEAD_TURNED, and EYES_CLOSED from attention samples (see
- * AttentionConfigSchema); LIGHTING_ISSUE and LOW_IMAGE_QUALITY from image-quality samples (see
- * ImageQualityLabConfigSchema).
+ * GAZE_AWAY, HEAD_TURNED, and EYES_CLOSED from attention samples (see AttentionConfigSchema);
+ * LIGHTING_ISSUE from image-quality samples (see ImageQualityLabConfigSchema); PHONE_DETECTED from
+ * object samples (see ObjectRuleSchema and ObjectsLabConfigSchema).
  */
 export const VIOLATION_TYPES = /** @type {const} */ ([
   "NO_FACE",
   "MULTIPLE_FACES",
   "FACE_MISMATCH",
   "GAZE_AWAY",
-  "GAZE_AWAY_REPEATED",
   "HEAD_TURNED",
   "EYES_CLOSED",
   "LIGHTING_ISSUE",
-  "LOW_IMAGE_QUALITY",
+  "PHONE_DETECTED",
 ]);
 
 /** @typedef {typeof VIOLATION_TYPES[number]} ViolationType */
@@ -168,29 +167,8 @@ export const AttentionRuleSchema = z
   .object({ ...violationRuleFields, ...escalationFields })
   .strict();
 
-export const GazeRepeatedRuleSchema = z
-  .object({
-    ...violationRuleFields,
-    /** Sliding window in which glances are counted. */
-    windowMs: z.number().int().min(1000).max(600_000),
-    /** Glances in the window at which the condition holds. */
-    minGlances: z.number().int().min(2).max(100),
-    /**
-     * A glance is an off-screen run of at least this length (shorter runs are noise or a
-     * blink); it counts when it reaches this length, also if it then becomes a GAZE_AWAY.
-     */
-    minGlanceMs: z.number().int().min(0).max(60_000),
-    /**
-     * Count only glances toward the most frequent direction (left, right, up, or down).
-     * Repeated looks at one place (notes, a second screen) are the pattern of interest;
-     * looking around while thinking spreads over directions.
-     */
-    sameDirection: z.boolean(),
-  })
-  .strict();
-
 /**
- * LIGHTING_ISSUE, LOW_IMAGE_QUALITY: evaluated from image-quality samples (1 FPS by default).
+ * LIGHTING_ISSUE: evaluated from image-quality samples (1 FPS by default).
  * Their own gap limit, because the image-quality engine samples less often than the face
  * engine and yields to it.
  */
@@ -202,16 +180,46 @@ export const QualityRuleSchema = z
   })
   .strict();
 
+/**
+ * PHONE_DETECTED: evaluated from the object samples of `objects.sourceEngineId`
+ * (1 FPS by default). A sample is a hit when the frame's best score for `label` reaches
+ * `minScore`; the condition holds while at least `votes` of the last `window` samples are hits,
+ * so a single false detection does not start a violation and a single miss does not end one.
+ */
+export const ObjectRuleSchema = z
+  .object({
+    ...violationRuleFields,
+    /** COCO class name, e.g. "cell phone". */
+    label: z.string().min(1),
+    /**
+     * Score at which a frame counts as a hit. Scores are model outputs, not probabilities, and
+     * differ between model families; check this value after changing the source engine.
+     */
+    minScore: z.number().min(0).max(1),
+    /** Hits needed among the last `window` samples. */
+    votes: z.number().int().min(1).max(20),
+    window: z.number().int().min(1).max(20),
+    /**
+     * Samples further apart than this end an active violation with "data-gap" and empty the
+     * vote window.
+     */
+    maxGapMs: z.number().int().min(100).max(600_000),
+  })
+  .strict()
+  .refine((rule) => rule.votes <= rule.window, {
+    message: "votes must not exceed window",
+    path: ["votes"],
+  });
+
 export const VIOLATION_RULE_SCHEMAS = Object.freeze({
   NO_FACE: NoFaceRuleSchema,
   MULTIPLE_FACES: MultipleFacesRuleSchema,
   FACE_MISMATCH: FaceMismatchRuleSchema,
   GAZE_AWAY: AttentionRuleSchema,
-  GAZE_AWAY_REPEATED: GazeRepeatedRuleSchema,
   HEAD_TURNED: AttentionRuleSchema,
   EYES_CLOSED: AttentionRuleSchema,
   LIGHTING_ISSUE: QualityRuleSchema,
-  LOW_IMAGE_QUALITY: QualityRuleSchema,
+  PHONE_DETECTED: ObjectRuleSchema,
 });
 
 export const ViolationsConfigSchema = z
@@ -232,11 +240,10 @@ export const ViolationsConfigSchema = z
         MULTIPLE_FACES: MultipleFacesRuleSchema,
         FACE_MISMATCH: FaceMismatchRuleSchema,
         GAZE_AWAY: AttentionRuleSchema,
-        GAZE_AWAY_REPEATED: GazeRepeatedRuleSchema,
         HEAD_TURNED: AttentionRuleSchema,
         EYES_CLOSED: AttentionRuleSchema,
         LIGHTING_ISSUE: QualityRuleSchema,
-        LOW_IMAGE_QUALITY: QualityRuleSchema,
+        PHONE_DETECTED: ObjectRuleSchema,
       })
       .strict(),
   })
@@ -246,8 +253,8 @@ export const ViolationsConfigSchema = z
 /**
  * @typedef {z.infer<typeof NoFaceRuleSchema> & { minFaces?: number, similarityThreshold?: number,
  *   escalateAfterMs?: number | null, escalatedSeverity?: 'low' | 'medium' | 'high',
- *   windowMs?: number, minGlances?: number, minGlanceMs?: number, sameDirection?: boolean,
- *   maxGapMs?: number }} ViolationRuleConfig
+ *   maxGapMs?: number, label?: string, minScore?: number, votes?: number,
+ *   window?: number }} ViolationRuleConfig
  */
 
 /** Strictness presets of the attention rules; "custom" after any manual change. */
@@ -408,6 +415,20 @@ export const ImageQualityLabConfigSchema = z
 
 /** @typedef {z.infer<typeof ImageQualityLabConfigSchema>} ImageQualityLabConfig */
 
+export const ObjectsLabConfigSchema = z
+  .object({
+    /**
+     * Object engine instance whose detections feed PHONE_DETECTED. The other
+     * object engines run for comparison only.
+     */
+    sourceEngineId: z.string().min(1),
+    /** Recent samples per engine kept for the comparison panel. */
+    historySize: z.number().int().min(10).max(5000),
+  })
+  .strict();
+
+/** @typedef {z.infer<typeof ObjectsLabConfigSchema>} ObjectsLabConfig */
+
 /**
  * Requirements a face embedding must meet before it is used. Every value is a starting point;
  * the Identity panel shows the measured value of each check next to its limit.
@@ -493,6 +514,7 @@ export const LabConfigSchema = z
     identity: IdentityConfigSchema,
     attention: AttentionConfigSchema,
     imageQuality: ImageQualityLabConfigSchema,
+    objects: ObjectsLabConfigSchema,
   })
   .strict()
   .superRefine((config, context) => {
@@ -513,6 +535,7 @@ export const LabConfigSchema = z
       ["attention", "sourceEngineId"],
       ["imageQuality", "sourceEngineId"],
       ["imageQuality", "faceSourceEngineId"],
+      ["objects", "sourceEngineId"],
     ]) {
       const id = /** @type {string} */ (
         /** @type {Record<string, any>} */ (config)[path[0]][path[1]]

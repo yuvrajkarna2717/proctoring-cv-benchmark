@@ -72,7 +72,7 @@ Status (2026-11-11): implemented, with additions aimed at users finding the old 
 
 - Every rule is measured against the person's own screen area (a guided 15 s calibration, or a baseline learned in the first 10 s) instead of a fixed angle.
 - Gaze combines the head pose with the eye direction.
-- A second rule, `GAZE_AWAY_REPEATED`, reports repeated short looks toward the same side (4 in 30 s).
+- A second rule, `GAZE_AWAY_REPEATED`, reported repeated short looks toward the same side (4 in 30 s); removed on 2026-11-12 at the user's request.
 - Long violations escalate in severity.
 - Lenient, balanced, and strict presets set tolerances and timings together.
 
@@ -81,7 +81,7 @@ Defaults (balanced): GAZE_AWAY 500 ms, clear after 300 ms, cooldown 2000 ms (tun
 ### Phase 5 — Image quality (implemented; real-condition checks pending)
 
 - Brightness, under/over-exposure, contrast, Laplacian-variance blur on the face region and the full frame, face size relative to frame; 1 FPS.
-- Events `LIGHTING_ISSUE`, `LOW_IMAGE_QUALITY`.
+- Events `LIGHTING_ISSUE`, `LOW_IMAGE_QUALITY` (the latter removed on 2026-11-12; image problems are now context on other violations only).
 - Measure whether CPU readback (`getImageData`) cost matters; Phase 1 measured about 7–8 ms per 720p frame for the diagnostic engine.
 
 Status (2026-11-11): implemented as a model-free engine at 1 FPS that measures the face region from the face landmarker's latest face box (passed with the frame as a hint).
@@ -93,12 +93,23 @@ Status (2026-11-11): implemented as a model-free engine at 1 FPS that measures t
 
 Open: limits checked on real rooms and webcams, and with diverse skin tones. See `docs/PHASE5_REPORT.md`.
 
-### Phase 6 — Object detection
+### Phase 6 — Object detection (implemented; real-webcam checks pending)
 
 - Compare EfficientDet-Lite0 int8 and Lite2 (MediaPipe) with NanoDet-Plus and YOLOX-S (ONNX Runtime Web) at 1 FPS and low priority.
 - `PHONE_DETECTED` (2 of 3 detections), configurable score thresholds, false-positive review on ordinary desk objects.
 - Notebook detection evaluated separately and documented with its limitations; COCO `book` is not a notebook class.
 - Exit: per-model latency, memory, precision, recall on annotated recordings.
+
+Status (2026-11-11): all four detectors integrated as separate engine instances at 1 FPS, compared in an Objects panel; one of them feeds the rules.
+
+- `PHONE_DETECTED` on 2 of the last 3 samples at score 0.5. `BOOK_DETECTED` (off by default) was removed on 2026-11-12.
+- On 12 photos (8 with a phone): YOLOX-S found 6 phones, NanoDet-Plus and Lite2 4 each, Lite0 2; one false phone (Lite2, a Kindle).
+- Latency alone, Chrome, WASM/CPU: NanoDet 39 ms, Lite0 73 ms, Lite2 202 ms, YOLOX 628 ms per frame (YOLOX 235 ms on WebGPU).
+- MediaPipe's GPU delegate gave wrong results with the int8 files; the CPU delegate is the default.
+
+Follow-up (2026-11-12): `PHONE_DETECTED` never fired in a live session with NanoDet-Plus, which scored phones at arm's length below 0.5. A zoom pass now also runs each detector on full-resolution crops. MediaPipe EfficientDet-Lite2 with it is the default source: phones found in 14 of 17 webcam-like scenes (NanoDet before: 5), one false phone on a Kindle, about 0.7–0.9 s per frame. Notebooks need a custom model (COCO has no such class).
+
+Open: precision and recall on real webcam sessions and recordings (Phase 7), false phones on real desks, a custom model for notebooks. See `docs/PHASE6_REPORT.md`.
 
 ### Phase 7 — Recording, replay, annotation
 

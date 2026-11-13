@@ -1,6 +1,22 @@
 # Known limitations
 
-Updated at the end of each phase. Status: Phase 5 (2026-11-11). The user's Phase 4 webcam session led to GAZE_AWAY tuning; Phase 3 and Phase 5 real-webcam checks are pending.
+Updated at the end of each phase. Status: Phase 6 (2026-11-11). The user's Phase 4 webcam session led to GAZE_AWAY tuning; Phase 3, Phase 5, and Phase 6 real-webcam checks are pending.
+
+## Scope of Phase 6 results (object detection)
+
+- **Follow-up (2026-11-12).** The first default (NanoDet-Plus on the whole frame scaled to 640 px) missed phones at arm's length in a live session: scores stayed below 0.5, so `PHONE_DETECTED` never fired. The default is now MediaPipe EfficientDet-Lite2 with the zoom pass (whole frame plus two full-resolution squares). In 17 webcam-like scenes it found the phone in 14 (NanoDet before: 5); it missed phones seen edge-on or in a dark room at half size. This is still a composed-scene test, not a webcam session.
+- **Cost of the zoom pass.** Lite2 with tiles takes 0.7–0.9 s per frame on this laptop next to the face engines (three model runs). Slower laptops may fall below 1 FPS; "Off" in the engine card returns to one run per frame.
+- **E-readers and tablets.** Lite2 called a Kindle a phone (0.82 with tiles), so a tablet or e-reader in view will likely raise `PHONE_DETECTED`.
+
+- **12 photos, no webcam session.** Phone detection was measured on 12 CC0 photos (8 with a phone) shown to the app as a camera: YOLOX-S found 6 of the 8 phones at the 0.5 limit, NanoDet-Plus and EfficientDet-Lite2 4 each, Lite0 2. Still images give the same score on every frame, so these are 12 samples, not rates. Phones in a real candidate's hand at webcam quality and distance are unmeasured, and so are false phones on real desks. Precision and recall need Phase 7 recordings.
+- **Hard cases.** Every model missed a phone seen edge-on; phones partly covered by a hand, face down, or small in the 640 px input are expected to be missed too. A phone held below the camera's view is invisible to any model.
+- **One false phone** at ≥ 0.5 in the 4 photos without a phone: Lite2 called a Kindle e-reader a phone (0.67). Other confusions below the limit or under other labels: Lite0 called a phone a "remote" (0.70), YOLOX called an open book a "laptop" (0.61).
+- **COCO `book` is not a notebook class.** Only the book held up by a reader was found (Lite0 0.59, Lite2 0.76; YOLOX 0.47, NanoDet nothing); a stack of books on a desk scored 0.34–0.42 and a book under a phone was not found. Notebooks and loose paper are not COCO classes. There is no book or notebook rule (`BOOK_DETECTED` was removed on 2026-11-12); the detectors still report `book` boxes in the Objects panel.
+- **Scores are not calibrated across models.** The 0.5 limit fits NanoDet and YOLOX on the photos; Lite2 reached exactly 0.50 on two of its four phones. Check the limit after switching the rules' source.
+- **MediaPipe GPU delegate with int8 models.** On this laptop (Chrome 156, Intel UHD) the int8 EfficientDet files gave wrong results on the GPU delegate (Lite0 one "boat" box per frame, Lite2 nothing). The CPU delegate is the default and works. The float16 Lite0 file worked on the GPU but is not pinned.
+- **YOLOX-S cost.** 0.6 s per frame on WASM (0.5 s with the other three models running), 123 MB of worker memory, a 36 MB download, and 6 s to load. On WebGPU it took 235 ms here; other GPUs are unmeasured.
+- **1 FPS and 2 of 3 votes** mean a phone shown for less than about 2 s is not reported, by design.
+- **Channel order** (BGR for NanoDet and YOLOX) was chosen on the same 12 photos: BGR found one more phone per model than the RGB the OpenCV Zoo demos use.
 
 ## Scope of Phase 5 results (image quality)
 
@@ -102,7 +118,7 @@ Updated at the end of each phase. Status: Phase 5 (2026-11-11). The user's Phase
 - The overlay shows the latest result, so at 5 FPS boxes trail a moving face by up to one interval plus processing time.
 - Starting detection clears the violation history; export the report before restarting a session you want to keep.
 - MediaPipe Tasks Vision 1.2.2 tries to send usage statistics to Google (see `docs/MODEL_LICENSES.md`). The lab refuses the request; the log shows one warning per MediaPipe task.
-- Not implemented yet: gaze and head pose (Phase 4), identity verification (Phase 3), object detection (Phase 6), and an event for leaving the tab.
+- Not implemented yet: an event for leaving the tab. (Gaze and head pose came in Phase 4, identity verification in Phase 3, object detection in Phase 6.)
 
 ## Model and licensing caveats (for later phases)
 
@@ -110,4 +126,5 @@ Updated at the end of each phase. Status: Phase 5 (2026-11-11). The user's Phase
 - MediaPipe model cards describe AR/entertainment as the intended use, exclude human life-critical decisions, and state that surveillance and identity recognition are out of scope (BlazeFace). Proctoring use needs legal and ethics review. This now applies to the integrated Face Landmarker.
 - MediaPipe face models are documented as unsuitable for faces turned more than 80° away or less than 50% visible; strong head turns are expected to produce `NO_FACE` observations.
 - Whether Apache-2.0 covers every file inside the `.task` bundle is an open question (public forum thread, no maintainer answer).
-- COCO `book` has low published AP (7.3 NanoDet-Plus, 15.0 YOLOX-S) and is not a notebook class; notebook detection is expected to be unreliable until measured.
+- COCO `book` has low published AP (7.3 NanoDet-Plus, 15.0 YOLOX-S) and is not a notebook class; the Phase 6 photos confirmed it (see above).
+- The EfficientDet-Lite license (Apache-2.0) comes from the Kaggle Models listing of the TF Hub release and the google/automl repository; no statement names the MediaPipe-hosted files themselves.

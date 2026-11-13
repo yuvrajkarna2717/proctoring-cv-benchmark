@@ -357,6 +357,121 @@ export function EngineCard({ engine }) {
               </Col>
             </>
           )}
+          {(engine.kind === "mp-object-detector" || engine.kind === "ort-object-detector") && (
+            <>
+              <Col xs={6} md={3}>
+                {engine.kind === "mp-object-detector" ? (
+                  <Form.Group controlId={`${engine.id}-delegate`}>
+                    <Form.Label className="small mb-0">Delegate</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={config.delegate}
+                      disabled={busy}
+                      onChange={(event) =>
+                        run(() =>
+                          controller.configureEngine(engine.id, { delegate: event.target.value }),
+                        )
+                      }
+                    >
+                      <option value="CPU">CPU (WASM, default)</option>
+                      <option value="GPU">GPU (WebGL2): wrong results with int8 in tests</option>
+                    </Form.Select>
+                  </Form.Group>
+                ) : (
+                  <Form.Group controlId={`${engine.id}-provider`}>
+                    <Form.Label className="small mb-0">Execution provider</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={config.executionProvider}
+                      disabled={busy}
+                      onChange={(event) =>
+                        run(() =>
+                          controller.configureEngine(engine.id, {
+                            executionProvider: event.target.value,
+                          }),
+                        )
+                      }
+                    >
+                      <option value="wasm">WASM (CPU)</option>
+                      <option value="webgpu">WebGPU</option>
+                    </Form.Select>
+                  </Form.Group>
+                )}
+              </Col>
+              <Col xs={6} md={3}>
+                <CommitNumberInput
+                  key={`min-score-${config.minScore}`}
+                  id={`${engine.id}-min-score`}
+                  label="Reporting score ≥"
+                  value={config.minScore}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  disabled={busy}
+                  onCommit={(value) => controller.configureEngine(engine.id, { minScore: value })}
+                />
+              </Col>
+              <Col xs={6} md={3}>
+                <CommitNumberInput
+                  key={`max-detections-${config.maxDetections}`}
+                  id={`${engine.id}-max-detections`}
+                  label="Max detections"
+                  value={config.maxDetections}
+                  min={1}
+                  max={100}
+                  step={1}
+                  disabled={busy}
+                  onCommit={(value) =>
+                    controller.configureEngine(engine.id, { maxDetections: value })
+                  }
+                />
+              </Col>
+              <Col xs={6} md={3}>
+                <Form.Group controlId={`${engine.id}-zoom`}>
+                  <Form.Label className="small mb-0">Zoom pass</Form.Label>
+                  <Form.Select
+                    size="sm"
+                    value={config.zoom}
+                    disabled={busy}
+                    title="Also run on full-resolution crops so small phones are larger in the model input; each crop is one more model run"
+                    onChange={(event) =>
+                      run(() => controller.configureEngine(engine.id, { zoom: event.target.value }))
+                    }
+                  >
+                    <option value="off">Off (whole frame, 1 run)</option>
+                    <option value="tiles">Tiles (whole frame + 2 squares, 3 runs)</option>
+                    <option value="fine">Fine (whole frame + 6 squares, 7 runs)</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              {engine.kind === "ort-object-detector" && (
+                <Col xs={6} md={3}>
+                  <CommitNumberInput
+                    key={`nms-${config.nmsThreshold}`}
+                    id={`${engine.id}-nms`}
+                    label="NMS IoU"
+                    value={config.nmsThreshold}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    disabled={busy}
+                    onCommit={(value) =>
+                      controller.configureEngine(engine.id, { nmsThreshold: value })
+                    }
+                  />
+                </Col>
+              )}
+              <Col xs={12}>
+                <span className="small text-muted">
+                  Model {String(config.model)} · reports{" "}
+                  {config.classes.length > 0
+                    ? `${config.classes.length} COCO classes (${config.classes.join(", ")})`
+                    : "all 80 COCO classes"}
+                  . The rules apply their own score limits.
+                </span>
+              </Col>
+            </>
+          )}
           <Col xs={12} md={6} className="d-flex gap-2 align-items-center">
             <Button
               size="sm"

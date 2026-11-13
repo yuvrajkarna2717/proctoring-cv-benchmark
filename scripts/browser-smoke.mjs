@@ -1,7 +1,7 @@
 /**
  * Headless browser smoke test of the lab (pipeline from Phase 1, face engine and violation rules
  * from Phase 2, face verification from Phase 3, attention from Phase 4, image quality from
- * Phase 5).
+ * Phase 5, object detection from Phase 6).
  *
  * Builds the app, serves the production build with `vite preview` (same COOP/COEP headers and
  * CSP as a deployment), opens it in an installed Chromium-based browser with Chrome's synthetic
@@ -20,11 +20,15 @@
  *   strictness preset chosen in the UI applies.
  * - R (after Q): image-quality engine next to the face landmarker: frame statistics from real
  *   pixels with a timed read-back, the face region not measured without a face, no
- *   LOW_IMAGE_QUALITY, the Image quality panel rendered.
+ *   LIGHTING_ISSUE, the Image quality panel rendered.
  * - M, N: face verifier (YuNet + SFace, ONNX Runtime Web) on the WASM provider, then switched live
  *   to WebGPU. With no face on the synthetic camera, the centre-crop diagnostic runs both models.
  * - O: identity storage, enrollment refusing frames without a face, no FACE_MISMATCH without a
  *   reference, deletion of all identity data, and the verification worker's CSP and egress guard.
+ * - S (after O): the four object detectors (EfficientDet-Lite0/Lite2 on MediaPipe, NanoDet-Plus and
+ *   YOLOX-S on ONNX Runtime Web) load from the app's origin and run together at 1 FPS without
+ *   failures; no PHONE_DETECTED on the synthetic camera; latency and memory recorded per model;
+ *   the Objects panel switches the rules' source engine.
  * - P: stopping the camera releases every track.
  *
  * Checks come in two kinds:
@@ -56,7 +60,7 @@ import { DEFAULT_FACE_VERIFIER_CONFIG } from "../src/engines/verification/faceVe
 import { ORT_WASM_DIR } from "../src/engines/verification/ortAssets.js";
 import { ensureModels } from "./fetch-models.mjs";
 
-const PHASE = 5;
+const PHASE = 6;
 const IDENTITY_DATABASE = "proctoring-cv-lab-identity";
 const FACE_MODEL = MODEL_ASSETS["mp-face-landmarker"];
 /** The verifier's default SFace variant, which the smoke run loads. */
@@ -283,6 +287,7 @@ async function main() {
       if (
         url.pathname.endsWith(`/${FACE_MODEL.file}`) ||
         url.pathname.endsWith(".onnx") ||
+        url.pathname.endsWith(".tflite") ||
         url.pathname.includes(MEDIAPIPE_WASM_DIR) ||
         url.pathname.includes(ORT_WASM_DIR)
       ) {
@@ -391,12 +396,15 @@ async function main() {
     // Consent and camera start through the real UI.
     await page.locator("#consent-checkbox").check();
     await page.getByRole("button", { name: "Continue" }).click();
-    // A–H measure the pipeline with the diagnostic probe, as in Phase 1. The face engines and the
-    // image-quality engine (on by default) are loaded later: the face landmarker for I–L and Q,
-    // the image-quality engine with it for R, the face verifier for M–O.
+    // A–H measure the pipeline with the diagnostic probe, as in Phase 1. The face engines, the
+    // image-quality engine, and the object detector (on by default) are loaded later: the face
+    // landmarker for I–L and Q, the image-quality engine with it for R, the face verifier for
+    // M–O, the object detectors for S.
     await page.locator("#engine-enabled-face-landmarker").uncheck();
     await page.locator("#engine-enabled-face-verifier").uncheck();
     await page.locator("#engine-enabled-image-quality").uncheck();
+    // The default object detector (Phase 6) is loaded with the others in S.
+    await page.locator("#engine-enabled-objects-effdet-lite2").uncheck();
     await page.locator("#engine-enabled-probe-high").check();
     // Start the camera. Chromium's synthetic camera has occasionally ended its track right after
     // getUserMedia; the app then reports TRACK_ENDED. Retry once and keep the reason in the report.
@@ -1144,7 +1152,7 @@ async function main() {
     await page.getByRole("button", { name: "Stop detection" }).click();
     await waitForDetection(false);
     const qEnd = await snapshot();
-    const attentionTypes = ["GAZE_AWAY", "GAZE_AWAY_REPEATED", "HEAD_TURNED", "EYES_CLOSED"];
+    const attentionTypes = ["GAZE_AWAY", "HEAD_TURNED", "EYES_CLOSED"];
     const attentionViolations = qEnd.violations.history.filter((v) =>
       attentionTypes.includes(v.type),
     );
@@ -1240,7 +1248,7 @@ async function main() {
       .catch(() => null);
     const rEnd = await snapshot();
     const qualityViolations = rEnd.violations.history.filter((v) =>
-      ["LIGHTING_ISSUE", "LOW_IMAGE_QUALITY"].includes(v.type),
+      ["LIGHTING_ISSUE"].includes(v.type),
     );
     const rNoFace = rEnd.violations.history.findLast((v) => v.type === "NO_FACE");
     scenarios.R_imageQuality = {
@@ -1279,8 +1287,8 @@ async function main() {
     // NO_FACE's imageIssues is recorded, not checked: it is null when NO_FACE confirmed before
     // the first image-quality sample of the run.
     check(
-      "R: no LOW_IMAGE_QUALITY without a face (face checks undecided)",
-      qualityViolations.every((v) => v.type !== "LOW_IMAGE_QUALITY"),
+      "R: no LIGHTING_ISSUE without a face (face checks undecided, frame luma normal)",
+      qualityViolations.length === 0,
       { qualityViolations, noFaceImageIssues: rNoFace?.imageIssues },
     );
     check(
@@ -1614,6 +1622,132 @@ async function main() {
         scenarios.O_identity.ortLicenseNotice,
       );
     }
+
+    // S: object detectors. Detection keeps running from O; the verifier is unloaded so the four
+    // object engines run alone, together, at their default 1 FPS. The synthetic camera shows a
+    // test pattern, so PHONE_DETECTED must not fire.
+    await page.locator("#engine-enabled-face-verifier").uncheck();
+    const OBJECT_ENGINES = [
+      "objects-effdet-lite0",
+      "objects-effdet-lite2",
+      "objects-nanodet",
+      "objects-yolox",
+    ];
+    for (const id of OBJECT_ENGINES) {
+      await page.locator(`#engine-enabled-${id}`).check();
+      await waitForEngineReady(id, 120_000);
+    }
+    const s = await measureWindow("S objects", Math.max(windowMs, 12_000));
+    await lab("measureMemory");
+    const sMemory = (await snapshot()).monitor.memory;
+    const sRows = await page.getByTestId(/^objects-row-/).count();
+    const sOverlays = await page.getByTestId(/^object-overlay-/).count();
+    await page.getByTestId("object-source-objects-yolox").click();
+    const sSwitched = await snapshot();
+    await page.getByTestId("object-source-objects-effdet-lite2").click();
+    const sEnd = await snapshot();
+    const sEngines = Object.fromEntries(
+      OBJECT_ENGINES.map((id) => {
+        const e = engine(s.snap, id);
+        return [
+          id,
+          {
+            ...engineSummary(e),
+            provider: e.client?.executionProvider ?? null,
+            model: e.client?.model ?? null,
+            objects: s.snap.objects.engines[id] ?? null,
+          },
+        ];
+      }),
+    );
+    const phoneViolations = sEnd.violations.history.filter((v) => v.type === "PHONE_DETECTED");
+    scenarios.S_objects = {
+      machineCpuBusyPercent: s.machineCpuBusyPercent,
+      engines: sEngines,
+      objectFramesEvaluated: s.snap.violations.objectFramesEvaluated,
+      phoneViolations,
+      memory: sMemory?.contexts
+        ? sMemory.contexts
+            .filter((c) => /objects-/.test(c.url))
+            .map((c) => ({ url: new URL(c.url).pathname, mb: round(c.bytes / 1048576, 1) }))
+        : sMemory,
+      panelRows: sRows,
+      overlays: sOverlays,
+      switchedSource: sSwitched.objects.sourceEngineId,
+      switchedViolationsSource: sSwitched.violations.objectSourceEngineId,
+      restoredSource: sEnd.objects.sourceEngineId,
+    };
+    for (const id of OBJECT_ENGINES) {
+      const e = engine(s.snap, id);
+      console.log(
+        `  ${id}: ${e.client?.executionProvider} · ${e.metrics.counters.results} results · ` +
+          `inference p50 ${round(e.metrics.latency.inferenceMs.median, 1)} ms · engine p95 ` +
+          `${round(e.metrics.latency.engineMs.p95, 1)} ms · init ${round(e.metrics.init?.spawnToReadyMs, 0)} ms`,
+      );
+    }
+    check(
+      "S: four object engines ready, results without failures",
+      OBJECT_ENGINES.every((id) => {
+        const e = engine(s.snap, id);
+        return (
+          e.client?.state === "ready" &&
+          e.metrics.counters.results >= 3 &&
+          e.metrics.counters.failures === 0
+        );
+      }),
+      Object.fromEntries(OBJECT_ENGINES.map((id) => [id, engine(s.snap, id).metrics.counters])),
+    );
+    check(
+      "S: providers as configured (MediaPipe CPU delegate, ONNX Runtime WASM)",
+      ["objects-effdet-lite0", "objects-effdet-lite2"].every(
+        (id) => engine(s.snap, id).client?.executionProvider === "mediapipe-cpu",
+      ) &&
+        ["objects-nanodet", "objects-yolox"].every(
+          (id) => engine(s.snap, id).client?.executionProvider === "ort-wasm",
+        ),
+      OBJECT_ENGINES.map((id) => engine(s.snap, id).client?.executionProvider),
+    );
+    check(
+      "S: every result carries an OBJECTS summary and the rules read the default source",
+      OBJECT_ENGINES.every((id) =>
+        engine(s.snap, id).lastResult?.observations.some((o) => o.type === "OBJECTS"),
+      ) &&
+        s.snap.objects.sourceEngineId === "objects-effdet-lite2" &&
+        s.snap.violations.objectFramesEvaluated > 0,
+      {
+        source: s.snap.objects.sourceEngineId,
+        objectFramesEvaluated: s.snap.violations.objectFramesEvaluated,
+      },
+    );
+    check(
+      "S: no PHONE_DETECTED on the synthetic camera",
+      phoneViolations.length === 0,
+      phoneViolations,
+    );
+    check(
+      "S: TFLite and ONNX object models loaded from the app's origin",
+      OBJECT_ENGINES.every((id) => {
+        const file = MODEL_ASSETS[engine(s.snap, id).engineConfig.model].file;
+        return [...requests.workerAssets].some((p) => p.endsWith(`/${file}`));
+      }),
+      [...requests.workerAssets].filter((p) => p.endsWith(".tflite") || p.includes("object_")),
+    );
+    check(
+      "S: Objects panel lists the four models, boxes overlay drawn per enabled model",
+      sRows === 4 && sOverlays === 4,
+      { rows: sRows, overlays: sOverlays },
+    );
+    check(
+      "S: the panel switches the rules' source engine and back",
+      sSwitched.objects.sourceEngineId === "objects-yolox" &&
+        sSwitched.violations.objectSourceEngineId === "objects-yolox" &&
+        sEnd.objects.sourceEngineId === "objects-effdet-lite2",
+      {
+        switched: sSwitched.objects.sourceEngineId,
+        restored: sEnd.objects.sourceEngineId,
+      },
+    );
+    for (const id of OBJECT_ENGINES) await page.locator(`#engine-enabled-${id}`).uncheck();
 
     finalReport = await lab("buildReport");
     const reportText = JSON.stringify(finalReport);

@@ -40,11 +40,11 @@ function describeMeasure(violation) {
   if (violation.maxExcessDeg !== null && violation.maxExcessDeg !== undefined) {
     return `${formatNumber(violation.maxExcessDeg, 1)}° beyond${toward}${uncalibrated}`;
   }
-  if (violation.glanceCount !== null && violation.glanceCount !== undefined) {
-    return `${violation.glanceCount} looks${toward}${uncalibrated}`;
-  }
   if (violation.maxClosure !== null && violation.maxClosure !== undefined) {
     return `blink ${formatNumber(violation.maxClosure, 2)}`;
+  }
+  if (violation.maxScore !== null && violation.maxScore !== undefined) {
+    return `${violation.label} ${formatNumber(violation.maxScore, 2)}`;
   }
   if (violation.reasons) return violation.reasons.join(", ") || "—";
   return `${violation.maxFaceCount} faces`;
@@ -61,7 +61,7 @@ function imageNote(violation) {
 }
 
 /**
- * Temporal rules (face, identity, attention): live state, editable thresholds, active
+ * Temporal rules (face, identity, attention, image, objects): live state, editable thresholds, active
  * violations, and history. Thresholds are starting values; changes apply from the next frame.
  */
 export function ViolationsPanel() {
@@ -94,8 +94,9 @@ export function ViolationsPanel() {
           faces: {violations.sourceEngineId}, {formatInteger(violations.framesEvaluated)} frames ·
           identity: {violations.identitySourceEngineId},{" "}
           {formatInteger(violations.identityFramesEvaluated)} compared · attention:{" "}
-          {formatInteger(violations.attentionFramesEvaluated)} frames · gap limit{" "}
-          {violations.maxGapMs} ms · rule times in ms
+          {formatInteger(violations.attentionFramesEvaluated)} frames · objects:{" "}
+          {violations.objectSourceEngineId}, {formatInteger(violations.objectFramesEvaluated)}{" "}
+          frames · gap limit {violations.maxGapMs} ms · rule times in ms
         </span>
         {violations.active.length > 0 && (
           <Badge bg="danger" data-testid="violations-active-count">
@@ -125,7 +126,7 @@ export function ViolationsPanel() {
               <th title="Minimum milliseconds between the end of one violation and the next of the same type">
                 Cooldown
               </th>
-              <th title="MULTIPLE_FACES: minimum face count. FACE_MISMATCH: cosine similarity below which a compared frame counts as a mismatch (not a probability). GAZE_AWAY_REPEATED: looks away needed in the window. GAZE_AWAY, HEAD_TURNED, EYES_CLOSED: severity raised when a violation lasts this long">
+              <th title="MULTIPLE_FACES: minimum face count. FACE_MISMATCH: cosine similarity below which a compared frame counts as a mismatch (not a probability). GAZE_AWAY, HEAD_TURNED, EYES_CLOSED: severity raised when a violation lasts this long. PHONE_DETECTED: minimum model score of the COCO label, and how many of the last samples must reach it">
                 Rule value
               </th>
               <th>Severity</th>
@@ -199,32 +200,55 @@ export function ViolationsPanel() {
                         controller.updateViolationRule(rule.type, { minFaces: value })
                       }
                     />
-                  ) : "minGlances" in rule.config ? (
-                    <div className="d-flex gap-1 align-items-start">
-                      <CommitNumberInput
-                        key={`${rule.type}-minGlances-${rule.config.minGlances}`}
-                        id={`rule-${rule.type}-minGlances`}
-                        ariaLabel={`${rule.type} glances needed`}
-                        value={/** @type {number} */ (rule.config.minGlances)}
-                        min={2}
-                        max={100}
-                        step={1}
-                        onCommit={(value) =>
-                          controller.updateViolationRule(rule.type, { minGlances: value })
-                        }
-                      />
-                      <span className="small text-muted text-wrap" style={{ minWidth: "6rem" }}>
-                        in {formatNumber(/** @type {number} */ (rule.config.windowMs) / 1000, 0)} s,
-                        each ≥ {rule.config.minGlanceMs} ms
-                        {rule.config.sameDirection ? ", same side" : ""}
-                      </span>
-                    </div>
                   ) : "escalateAfterMs" in rule.config ? (
                     <span className="small text-muted text-wrap">
                       {rule.config.escalateAfterMs === null
                         ? "no escalation"
                         : `→ ${rule.config.escalatedSeverity} after ${formatNumber(/** @type {number} */ (rule.config.escalateAfterMs) / 1000, 0)} s`}
                     </span>
+                  ) : "votes" in rule.config ? (
+                    <div className="d-flex gap-1 align-items-start flex-wrap">
+                      <span className="small text-muted text-wrap" style={{ minWidth: "4rem" }}>
+                        {String(rule.config.label)} ≥
+                      </span>
+                      <CommitNumberInput
+                        key={`${rule.type}-minScore-${rule.config.minScore}`}
+                        id={`rule-${rule.type}-minScore`}
+                        ariaLabel={`${rule.type} minimum score`}
+                        value={/** @type {number} */ (rule.config.minScore)}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        onCommit={(value) =>
+                          controller.updateViolationRule(rule.type, { minScore: value })
+                        }
+                      />
+                      <CommitNumberInput
+                        key={`${rule.type}-votes-${rule.config.votes}`}
+                        id={`rule-${rule.type}-votes`}
+                        ariaLabel={`${rule.type} samples that must reach the score`}
+                        value={/** @type {number} */ (rule.config.votes)}
+                        min={1}
+                        max={/** @type {number} */ (rule.config.window)}
+                        step={1}
+                        onCommit={(value) =>
+                          controller.updateViolationRule(rule.type, { votes: value })
+                        }
+                      />
+                      <span className="small text-muted">of</span>
+                      <CommitNumberInput
+                        key={`${rule.type}-window-${rule.config.window}`}
+                        id={`rule-${rule.type}-window`}
+                        ariaLabel={`${rule.type} samples in the window`}
+                        value={/** @type {number} */ (rule.config.window)}
+                        min={/** @type {number} */ (rule.config.votes)}
+                        max={20}
+                        step={1}
+                        onCommit={(value) =>
+                          controller.updateViolationRule(rule.type, { window: value })
+                        }
+                      />
+                    </div>
                   ) : "similarityThreshold" in rule.config ? (
                     <CommitNumberInput
                       key={`${rule.type}-threshold-${rule.config.similarityThreshold}`}
@@ -282,7 +306,7 @@ export function ViolationsPanel() {
               <th>Started</th>
               <th>Duration</th>
               <th title="Frames on which the condition held">Frames</th>
-              <th title="Highest face count; FACE_MISMATCH: lowest similarity to the reference; GAZE_AWAY, HEAD_TURNED: largest angle beyond the tolerated area and its direction; GAZE_AWAY_REPEATED: looks away in the window; EYES_CLOSED: highest blink score">
+              <th title="Highest face count; FACE_MISMATCH: lowest similarity to the reference; GAZE_AWAY, HEAD_TURNED: largest angle beyond the tolerated area and its direction; EYES_CLOSED: highest blink score; PHONE_DETECTED: highest score of the label">
                 Measure
               </th>
               <th>Status</th>

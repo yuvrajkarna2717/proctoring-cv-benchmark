@@ -11,6 +11,7 @@ import { DEFAULT_FACE_VERIFIER_CONFIG } from "../engines/verification/faceVerifi
 import { AttentionManager } from "../attention/AttentionManager.js";
 import { PRESET_RULE_TYPES, attentionPreset } from "../attention/presets.js";
 import { IdentityManager } from "../identity/IdentityManager.js";
+import { OBJECT_ENGINE_KINDS, ObjectMonitor } from "../objects/objectMonitor.js";
 import { QualityMonitor } from "../quality/qualityModel.js";
 import { createIdentityStore } from "../identity/IdentityStore.js";
 import { DetectionPipeline } from "../pipeline/DetectionPipeline.js";
@@ -28,7 +29,7 @@ import { WorkerEngineClient } from "../workers/WorkerEngineClient.js";
 import { WORKER_FACTORIES } from "../workers/workerFactories.js";
 
 export const REPORT_SCHEMA = "proctoring-cv-lab/report@1";
-const LAB_PHASE = 4;
+const LAB_PHASE = 6;
 const MAX_LOG_ENTRIES = 200;
 const LOG_THROTTLE_MS = 2000;
 
@@ -135,6 +136,8 @@ export class LabController {
   #calibrationKey = "";
   /** @type {QualityMonitor} */
   #quality;
+  /** @type {ObjectMonitor} */
+  #objects;
   /**
    * Primary face of the face source engine's latest result, passed to image-quality engines.
    * @type {import('../engines/quality/ImageQualityEngine.js').FaceHint | null}
@@ -179,8 +182,10 @@ export class LabController {
       identitySourceEngineId: this.#config.identity.sourceEngineId,
       attentionSourceEngineId: this.#config.attention.sourceEngineId,
       qualitySourceEngineId: this.#config.imageQuality.sourceEngineId,
+      objectSourceEngineId: this.#config.objects.sourceEngineId,
     });
     this.#quality = new QualityMonitor(this.#config.imageQuality);
+    this.#objects = new ObjectMonitor(this.#config.objects);
     this.#violations.onEvent((event) => this.#onViolationEvent(event));
     this.#identity = new IdentityManager({
       config: this.#config.identity,
@@ -461,6 +466,9 @@ export class LabController {
     slot.busyAction = "restarting";
     this.#monitor.recordRestart(engineId);
     if (engineId === this.#violations.sourceEngineId) this.#violations.interrupt("data-gap");
+    if (engineId === this.#objects.sourceEngineId) {
+      this.#violations.interruptObjectRules("data-gap");
+    }
     this.#log("warn", engineId, "Restarting worker");
     this.#publish();
     try {
@@ -492,6 +500,7 @@ export class LabController {
     this.#identity.clearComparisons();
     this.#attention.startSession();
     this.#quality.clear();
+    this.#objects.clear();
     this.#faceHint = null;
     this.#pipeline.start();
     this.#detectionRunning = true;
@@ -564,7 +573,7 @@ export class LabController {
   }
 
   /**
-   * Applies a strictness preset: the attention tolerances and the four attention rules'
+   * Applies a strictness preset: the attention tolerances and the three attention rules'
    * timings and counts. Rules keep their on/off state and severity.
    *
    * @param {import('../attention/presets.js').PresetName} name
@@ -613,6 +622,25 @@ export class LabController {
     this.#log("info", "attention", `Attention settings updated: ${JSON.stringify(patch)}`);
     this.#publish();
     return config;
+  }
+
+  /**
+   * Makes `engineId` the object detector that PHONE_DETECTED reads. Active
+   * object violations end with "source-changed"; the other object engines keep running for
+   * comparison.
+   *
+   * @param {string} engineId
+   */
+  setObjectSource(engineId) {
+    const slot = this.#slot(engineId);
+    if (!OBJECT_ENGINE_KINDS.includes(slot.definition.kind)) {
+      throw new LabError(`${engineId} is not an object detector`, { code: "NOT_OBJECT_ENGINE" });
+    }
+    if (engineId === this.#objects.sourceEngineId) return;
+    this.#objects.setSourceEngine(engineId);
+    this.#violations.setObjectSource(engineId);
+    this.#log("info", "objects", `Object rules now read ${slot.definition.label} (${engineId})`);
+    this.#publish();
   }
 
   /** Clears the violation history and statistics. */
@@ -765,6 +793,7 @@ export class LabController {
         identity: snapshot.identity.config,
         attention: snapshot.attention.config,
         imageQuality: snapshot.imageQuality.config,
+        objects: snapshot.objects.config,
       },
       deviceProfile: this.#deviceProfile,
       snapshot,
@@ -816,6 +845,7 @@ export class LabController {
       identity: this.#identitySnapshot(),
       attention: this.#attention.getSnapshot(),
       imageQuality: this.#quality.getSnapshot(),
+      objects: this.#objects.getSnapshot(),
       deviceProfile: this.#deviceProfile,
       log: [...this.#logEntries],
     };
@@ -911,6 +941,9 @@ export class LabController {
     if (slot.definition.id === this.#violations.sourceEngineId) {
       this.#violations.interrupt("data-gap");
     }
+    if (slot.definition.id === this.#objects.sourceEngineId) {
+      this.#violations.interruptObjectRules("data-gap");
+    }
     slot.client = null;
     slot.busyAction = "unloading";
     this.#publish();
@@ -982,6 +1015,10 @@ export class LabController {
           const sample = this.#quality.observe(event.result);
           if (sample) this.#violations.observeQuality(sample);
         }
+        if (OBJECT_ENGINE_KINDS.includes(slot.definition.kind)) {
+          const sample = this.#objects.observe(event.result, this.#violations.objectRuleLimits());
+          if (sample) this.#violations.observeObjects(sample);
+        }
       }
       const notice = {
         engineId: event.engineId,
@@ -1025,11 +1062,10 @@ export class LabController {
         NO_FACE: "no face",
         FACE_MISMATCH: `similarity to the reference down to ${violation.minSimilarity?.toFixed(3)}`,
         GAZE_AWAY: `gaze up to ${violation.maxExcessDeg}° outside the screen area${toward}`,
-        GAZE_AWAY_REPEATED: `${violation.glanceCount} looks away${toward} in the window`,
         HEAD_TURNED: `head up to ${violation.maxExcessDeg}° beyond the limit${toward}`,
         EYES_CLOSED: `eyes closed, blink score up to ${violation.maxClosure}`,
         LIGHTING_ISSUE: `lighting: ${(violation.reasons ?? []).join(", ")}`,
-        LOW_IMAGE_QUALITY: `image: ${(violation.reasons ?? []).join(", ")}`,
+        PHONE_DETECTED: `${violation.label} at score up to ${violation.maxScore}`,
       };
       const condition = conditions[violation.type] ?? `${violation.maxFaceCount} faces`;
       this.#log(

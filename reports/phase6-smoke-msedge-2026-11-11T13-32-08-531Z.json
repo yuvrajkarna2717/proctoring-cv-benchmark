@@ -1,0 +1,155 @@
+{
+  "tool": "scripts/browser-smoke.mjs",
+  "phase": 6,
+  "startedAt": "2026-11-11T13:32:08.531Z",
+  "finishedAt": "2026-11-11T13:32:18.424Z",
+  "browser": {
+    "channel": "msedge",
+    "version": "157.0.4341.46",
+    "headless": true
+  },
+  "server": "vite preview of the production build",
+  "host": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12450H",
+    "logicalCpus": 12,
+    "platform": "win32 10.0.26200"
+  },
+  "measurementWindowMs": 8000,
+  "passed": false,
+  "functionalChecks": {
+    "passed": 3,
+    "total": 4
+  },
+  "performanceChecks": {
+    "passed": 0,
+    "total": 0
+  },
+  "checks": [
+    {
+      "name": "page is cross-origin isolated (COOP/COEP)",
+      "kind": "functional",
+      "passed": true
+    },
+    {
+      "name": "camera started (at most one retry)",
+      "kind": "functional",
+      "passed": true,
+      "detail": [
+        "ok"
+      ]
+    },
+    {
+      "name": "camera track is live",
+      "kind": "functional",
+      "passed": true,
+      "detail": {
+        "width": 1280,
+        "height": 720,
+        "frameRate": 20
+      }
+    },
+    {
+      "name": "smoke run completed without exceptions",
+      "kind": "functional",
+      "passed": false,
+      "detail": "Error: A baseline: camera is error (TRACK_ENDED: The camera track ended unexpectedly)\n    at assertCameraActive (file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:369:13)\n    at measureWindow (file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:381:7)\n    at async main (file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:444:15)\n    at async file:///C:/code/office/proctoring-cv-benchmark/scripts/browser-smoke.mjs:1857:1"
+    }
+  ],
+  "scenarios": {
+    "cameraStartAttempts": [
+      {
+        "attempt": 1,
+        "status": "active",
+        "error": null
+      }
+    ],
+    "camera": {
+      "label": "fake_device_0",
+      "settings": {
+        "aspectRatio": 1.7777777777777777,
+        "deviceId": "d368440cd8d81f356786bbe6f95c6fb5c2a08fc6437b17d3c4ba797f5811a2ac",
+        "exposureMode": "manual",
+        "exposureTime": 50,
+        "focusDistance": 50,
+        "focusMode": "manual",
+        "frameRate": 20,
+        "groupId": "6acba489bb264bb80e9ccf6345ff13d0d11712bfd09ca08d4427af2883950358",
+        "height": 720,
+        "resizeMode": "none",
+        "width": 1280
+      }
+    }
+  },
+  "requests": {
+    "total": 5,
+    "offOrigin": [],
+    "workerAssetsSeen": []
+  },
+  "consoleErrorCount": 1,
+  "consoleErrors": [
+    "[camera] Camera track ended (device disconnected or permission revoked)"
+  ],
+  "failureDiagnostics": {
+    "camera": {
+      "status": "error",
+      "error": {
+        "name": "LabError",
+        "message": "The camera track ended unexpectedly",
+        "code": "TRACK_ENDED",
+        "stack": "LabError: The camera track ended unexpectedly\n    at #W (http://localhost:4317/assets/index-D-4EsV8g.js:64:124526)\n    at http://localhost:4317/assets/index-D-4EsV8g.js:64:109110\n    at #s (http://localhost:4317/assets/index-D-4EsV8g.js:9:195169)\n    at MediaStreamTrack.t (http://localhost:4317/assets/index-D-4EsV8g.js:9:194756)"
+      },
+      "devices": [],
+      "selectedDeviceId": "d368440cd8d81f356786bbe6f95c6fb5c2a08fc6437b17d3c4ba797f5811a2ac",
+      "track": null,
+      "releasedTrackStates": [
+        "ended"
+      ],
+      "frameSource": null
+    },
+    "log": [
+      {
+        "at": 1794403929370.6702,
+        "level": "info",
+        "source": "camera",
+        "message": "Consent to camera capture recorded for this session"
+      },
+      {
+        "at": 1794403929665.0352,
+        "level": "info",
+        "source": "probe-high",
+        "message": "Engine ready after 48.4 ms (provider: js)"
+      },
+      {
+        "at": 1794403929787.08,
+        "level": "info",
+        "source": "camera",
+        "message": "Camera started: \"fake_device_0\" 1280x720 @ 20 fps"
+      },
+      {
+        "at": 1794403929904.5151,
+        "level": "info",
+        "source": "pipeline",
+        "message": "Detection started; metrics and violations reset"
+      },
+      {
+        "at": 1794403931082.3801,
+        "level": "error",
+        "source": "camera",
+        "message": "Camera track ended (device disconnected or permission revoked)"
+      },
+      {
+        "at": 1794403931083.68,
+        "level": "info",
+        "source": "pipeline",
+        "message": "Detection stopped"
+      },
+      {
+        "at": 1794403931084.675,
+        "level": "info",
+        "source": "camera",
+        "message": "Camera stopped; released track states: ended"
+      }
+    ]
+  },
+  "labReport": null
+}

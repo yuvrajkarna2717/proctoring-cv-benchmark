@@ -21,10 +21,11 @@
  * @property {number} cooldownMs
  * @property {number} maxGapMs
  *
- * @typedef {'cleared' | 'data-gap' | 'stopped' | 'disabled' | 'reference-changed' | 'baseline-changed'} EndReason
+ * @typedef {'cleared' | 'data-gap' | 'stopped' | 'disabled' | 'reference-changed' | 'baseline-changed' | 'source-changed'} EndReason
  *   `reference-changed`: the enrolled reference a FACE_MISMATCH compared against was deleted
  *   or replaced. `baseline-changed`: the attention baseline (calibration) an attention rule
- *   measured against was replaced or reset
+ *   measured against was replaced or reset. `source-changed`: the engine an object rule reads
+ *   was switched to another model
  *
  * `samples` counts the samples on which the condition held, from the onset; `peak` is the
  * highest `value` passed with those samples (for example the face count).

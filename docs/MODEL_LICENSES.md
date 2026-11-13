@@ -1,6 +1,6 @@
 # Model and license register
 
-Last verified: 2026-11-11. Integrated so far: the MediaPipe Face Landmarker bundle (`mp-face-landmarker`, Phase 2), YuNet 2026may and SFace int8bq, fp32, and int8 (`ocv-yunet-2026may`, `ocv-sface-int8bq`, `ocv-sface`, `ocv-sface-int8`, Phase 3). `npm run fetch-models` downloads them and keeps each file only if its size and pinned SHA-256 match. This register lists the exact artifacts selected for Phases 2–6 and what was verified about each.
+Last verified: 2026-11-11. Integrated so far: the MediaPipe Face Landmarker bundle (`mp-face-landmarker`, Phase 2), YuNet 2026may and SFace int8bq, fp32, and int8 (`ocv-yunet-2026may`, `ocv-sface-int8bq`, `ocv-sface`, `ocv-sface-int8`, Phase 3), EfficientDet-Lite0 and Lite2 int8, NanoDet-Plus, and YOLOX-S (`mp-effdet-lite0-int8`, `mp-effdet-lite2-int8`, `ocv-nanodet-plus`, `ocv-yolox-s`, Phase 6). `npm run fetch-models` downloads them and keeps each file only if its size and pinned SHA-256 match. This register lists the exact artifacts selected for Phases 2–6 and what was verified about each.
 
 Rules:
 
@@ -19,15 +19,15 @@ Status values:
 
 ## Runtimes and libraries
 
-| Package                   | Version                                  | License      | Use                                                               |
-| ------------------------- | ---------------------------------------- | ------------ | ----------------------------------------------------------------- |
-| `@mediapipe/tasks-vision` | 1.2.2 (exact pin, installed in Phase 2)  | Apache-2.0   | Face Landmarker (Phase 2); Face Detector, Object Detector (later) |
-| `onnxruntime-web`         | 1.31.1 (exact pin, installed in Phase 3) | MIT          | YuNet, SFace (Phase 3); NanoDet-Plus, YOLOX (later)               |
-| `react`, `react-dom`      | 19.3.1                                   | MIT          | UI                                                                |
-| `react-bootstrap`         | 2.10.10                                  | MIT          | UI components                                                     |
-| `bootstrap`               | 5.3.8                                    | MIT          | CSS                                                               |
-| `zod`                     | 4.6.7                                    | MIT          | Configuration validation                                          |
-| `react-transition-group`  | 4.4.5                                    | BSD-3-Clause | Transitive dependency of react-bootstrap                          |
+| Package                   | Version                                  | License      | Use                                                   |
+| ------------------------- | ---------------------------------------- | ------------ | ----------------------------------------------------- |
+| `@mediapipe/tasks-vision` | 1.2.2 (exact pin, installed in Phase 2)  | Apache-2.0   | Face Landmarker (Phase 2); Object Detector (Phase 6)  |
+| `onnxruntime-web`         | 1.31.1 (exact pin, installed in Phase 3) | MIT          | YuNet, SFace (Phase 3); NanoDet-Plus, YOLOX (Phase 6) |
+| `react`, `react-dom`      | 19.3.1                                   | MIT          | UI                                                    |
+| `react-bootstrap`         | 2.10.10                                  | MIT          | UI components                                         |
+| `bootstrap`               | 5.3.8                                    | MIT          | CSS                                                   |
+| `zod`                     | 4.6.7                                    | MIT          | Configuration validation                              |
+| `react-transition-group`  | 4.4.5                                    | BSD-3-Clause | Transitive dependency of react-bootstrap              |
 
 `npm run build` writes `dist/.vite/license.md` with the license of every package bundled into the main chunk. It does not cover worker bundles or copied files, so the MediaPipe plugin emits `dist/vendor/mediapipe/tasks-vision@1.2.2/LICENSE-NOTICE.txt` next to the redistributed WASM files. Development-only packages (Vite, ESLint, Prettier, Vitest, playwright-core) are not shipped.
 
@@ -51,21 +51,21 @@ OpenCV.js (Apache-2.0) is not added. Face alignment, Laplacian variance, and hea
 
 Sizes are the `Content-Length` returned by the source on 2026-11-09.
 
-| ID                     | File                                          | Size (bytes) | Format / runtime                      | Input                                      | License                        | Status                                                              | Phase |
-| ---------------------- | --------------------------------------------- | -----------: | ------------------------------------- | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------- | ----- |
-| `mp-face-landmarker`   | `face_landmarker.task` (float16, v1)          |    3,758,596 | MediaPipe task bundle / tasks-vision  | detector 192×192, landmarks 256×256 crop   | Apache-2.0 (model cards)       | Integrated (Phase 2); cleared for POC, review before production     | 2, 4  |
-| `mp-blazeface-short`   | `blaze_face_short_range.tflite` (float16, v1) |      229,746 | TFLite / tasks-vision Face Detector   | 128×128                                    | Apache-2.0 (model card)        | Candidate (face-presence baseline)                                  | 2     |
-| `ocv-yunet-2023mar`    | `face_detection_yunet_2023mar.onnx`           |      232,589 | ONNX / ONNX Runtime Web               | fixed 640×640 (read from the graph)        | MIT                            | Not used: same weights as 2026may, fixed input                      | 3     |
-| `ocv-yunet-2026may`    | `face_detection_yunet_2026may.onnx`           |      229,738 | ONNX / ONNX Runtime Web               | dynamic H×W (multiples of 32)              | MIT                            | Integrated (Phase 3); cleared for POC, review before production     | 3     |
-| `ocv-sface-int8bq`     | `face_recognition_sface_2021dec_int8bq.onnx`  |   10,667,852 | ONNX int8 weights / ONNX Runtime Web  | 112×112 aligned face → 128-d embedding     | Apache-2.0                     | Integrated (Phase 3, default); cleared for POC benchmarking only    | 3     |
-| `ocv-sface`            | `face_recognition_sface_2021dec.onnx`         |   38,696,353 | ONNX / ONNX Runtime Web               | as above                                   | Apache-2.0                     | Integrated (Phase 3, selectable); cleared for POC benchmarking only | 3     |
-| `ocv-sface-int8`       | `face_recognition_sface_2021dec_int8.onnx`    |    9,896,933 | ONNX int8 / ONNX Runtime Web          | as above                                   | Apache-2.0                     | Integrated (Phase 3, selectable); cleared for POC benchmarking only | 3     |
-| `mp-effdet-lite0-int8` | `efficientdet_lite0.tflite` (int8, v1)        |    4,602,795 | TFLite / tasks-vision Object Detector | 320×320                                    | Apache-2.0 (origin, see notes) | Candidate; confirm license in Phase 6                               | 6     |
-| `mp-effdet-lite0-f16`  | `efficientdet_lite0.tflite` (float16, v1)     |    7,254,339 | TFLite / tasks-vision Object Detector | 320×320                                    | as above                       | Candidate                                                           | 6     |
-| `mp-effdet-lite2-int8` | `efficientdet_lite2.tflite` (int8, v1)        |    7,515,971 | TFLite / tasks-vision Object Detector | 448×448                                    | as above                       | Candidate                                                           | 6     |
-| `mp-effdet-lite2-f16`  | `efficientdet_lite2.tflite` (float16, v1)     |   12,138,859 | TFLite / tasks-vision Object Detector | 448×448                                    | as above                       | Candidate                                                           | 6     |
-| `ocv-nanodet-plus`     | `object_detection_nanodet_2022nov.onnx`       |    3,800,954 | ONNX / ONNX Runtime Web               | 416×416 (NanoDet-Plus-m-1.5x)              | Apache-2.0                     | Cleared for POC                                                     | 6     |
-| `ocv-yolox-s`          | `object_detection_yolox_2022nov.onnx`         |   35,858,002 | ONNX / ONNX Runtime Web               | YOLOX-S (input read from graph in Phase 6) | Apache-2.0                     | Cleared for POC                                                     | 6     |
+| ID                     | File                                          | Size (bytes) | Format / runtime                      | Input                                    | License                        | Status                                                                          | Phase |
+| ---------------------- | --------------------------------------------- | -----------: | ------------------------------------- | ---------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------- | ----- |
+| `mp-face-landmarker`   | `face_landmarker.task` (float16, v1)          |    3,758,596 | MediaPipe task bundle / tasks-vision  | detector 192×192, landmarks 256×256 crop | Apache-2.0 (model cards)       | Integrated (Phase 2); cleared for POC, review before production                 | 2, 4  |
+| `mp-blazeface-short`   | `blaze_face_short_range.tflite` (float16, v1) |      229,746 | TFLite / tasks-vision Face Detector   | 128×128                                  | Apache-2.0 (model card)        | Candidate (face-presence baseline)                                              | 2     |
+| `ocv-yunet-2023mar`    | `face_detection_yunet_2023mar.onnx`           |      232,589 | ONNX / ONNX Runtime Web               | fixed 640×640 (read from the graph)      | MIT                            | Not used: same weights as 2026may, fixed input                                  | 3     |
+| `ocv-yunet-2026may`    | `face_detection_yunet_2026may.onnx`           |      229,738 | ONNX / ONNX Runtime Web               | dynamic H×W (multiples of 32)            | MIT                            | Integrated (Phase 3); cleared for POC, review before production                 | 3     |
+| `ocv-sface-int8bq`     | `face_recognition_sface_2021dec_int8bq.onnx`  |   10,667,852 | ONNX int8 weights / ONNX Runtime Web  | 112×112 aligned face → 128-d embedding   | Apache-2.0                     | Integrated (Phase 3, default); cleared for POC benchmarking only                | 3     |
+| `ocv-sface`            | `face_recognition_sface_2021dec.onnx`         |   38,696,353 | ONNX / ONNX Runtime Web               | as above                                 | Apache-2.0                     | Integrated (Phase 3, selectable); cleared for POC benchmarking only             | 3     |
+| `ocv-sface-int8`       | `face_recognition_sface_2021dec_int8.onnx`    |    9,896,933 | ONNX int8 / ONNX Runtime Web          | as above                                 | Apache-2.0                     | Integrated (Phase 3, selectable); cleared for POC benchmarking only             | 3     |
+| `mp-effdet-lite0-int8` | `efficientdet_lite0.tflite` (int8, v1)        |    4,602,795 | TFLite / tasks-vision Object Detector | 320×320                                  | Apache-2.0 (Kaggle, see notes) | Integrated (Phase 6); cleared for POC                                           | 6     |
+| `mp-effdet-lite0-f16`  | `efficientdet_lite0.tflite` (float16, v1)     |    7,254,339 | TFLite / tasks-vision Object Detector | 320×320                                  | as above                       | Not integrated: works on the GPU delegate (int8 does not), see notes            | 6     |
+| `mp-effdet-lite2-int8` | `efficientdet_lite2.tflite` (int8, v1)        |    7,515,971 | TFLite / tasks-vision Object Detector | 448×448                                  | as above                       | Integrated (Phase 6, default object source with the zoom pass); cleared for POC | 6     |
+| `mp-effdet-lite2-f16`  | `efficientdet_lite2.tflite` (float16, v1)     |   12,138,859 | TFLite / tasks-vision Object Detector | 448×448                                  | as above                       | Not integrated                                                                  | 6     |
+| `ocv-nanodet-plus`     | `object_detection_nanodet_2022nov.onnx`       |    3,800,954 | ONNX / ONNX Runtime Web               | 416×416 (NanoDet-Plus-m-1.5x)            | Apache-2.0                     | Integrated (Phase 6); cleared for POC                                           | 6     |
+| `ocv-yolox-s`          | `object_detection_yolox_2022nov.onnx`         |   35,858,002 | ONNX / ONNX Runtime Web               | 640×640 (YOLOX-S)                        | Apache-2.0                     | Integrated (Phase 6); cleared for POC                                           | 6     |
 
 Source URLs:
 
@@ -125,7 +125,9 @@ Pre- and postprocessing follow OpenCV's own implementations (`FaceDetectorYN` an
 ### EfficientDet-Lite (`mp-effdet-*`)
 
 - Trained on COCO 2017; EfficientNet-Lite backbone with BiFPN. Inputs 320×320 (Lite0) and 448×448 (Lite2). Source: [Object Detector guide](https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector).
-- No model card or LICENSE file accompanies the MediaPipe-hosted `.tflite` files. The models come from the Apache-2.0 [google/automl](https://github.com/google/automl/tree/master/efficientdet) implementation and the TF Hub EfficientDet-Lite release. Confirm the license statement for the hosted artifact in Phase 6.
+- No model card or LICENSE file accompanies the MediaPipe-hosted `.tflite` files, and their TFLite metadata holds labels and normalization but no license text. The models come from the Apache-2.0 [google/automl](https://github.com/google/automl/tree/master/efficientdet) implementation (LICENSE verified) and the TF Hub EfficientDet-Lite release, now on Kaggle Models. The Kaggle Models API (`https://www.kaggle.com/api/v1/models/tensorflow/efficientdet/get`, checked 2026-11-11) lists "Apache 2.0" for every EfficientDet instance, including `lite0-detection-metadata`, `lite0-int8`, and `lite2-detection-metadata`. The MediaPipe files are taken as those releases under Apache-2.0; Google publishes no statement that names the hosted files themselves.
+- Pinned in Phase 6 (sizes and SHA-256 below). The downloaded files match the MD5 that Google Cloud Storage reports (last modified 2023-04-27).
+- **GPU delegate:** with MediaPipe's GPU delegate (WebGL2, Chrome 156, Intel UHD) the int8 files gave wrong results on every test photo (Lite0 one box such as "boat" 0.16 across the top of the image, Lite2 nothing above 0.3); on the CPU delegate they work. The float16 Lite0 file gave correct detections on the GPU delegate (it was tried, not pinned). The lab therefore uses the CPU delegate for the int8 files; see `docs/PHASE6_REPORT.md`.
 - COCO annotations are CC BY 4.0; COCO images carry their original Flickr terms.
 
 ### NanoDet-Plus and YOLOX-S (`ocv-nanodet-plus`, `ocv-yolox-s`)
@@ -138,7 +140,20 @@ Pre- and postprocessing follow OpenCV's own implementations (`FaceDetectorYN` an
 | NanoDet-Plus-m-1.5x 416 |               0.304 |            22.8 |       7.3 |
 | YOLOX-S                 |               0.405 |            32.4 |      15.0 |
 
-- These are general-scene numbers. Webcam close-ups of phones and notebooks are a different distribution and must be measured in Phase 6. COCO `book` is not a notebook or cheat-sheet class; its low AP is an early warning that notebook detection is unlikely to work without a custom model.
+- These are general-scene numbers. Webcam close-ups of phones and notebooks are a different distribution; Phase 6 measured them on 12 photos only (see `docs/PHASE6_REPORT.md`). COCO `book` is not a notebook or cheat-sheet class; its low AP is an early warning that notebook detection is unlikely to work without a custom model.
+- Graphs (read with ONNX Runtime): NanoDet input `input.1` [1, 3, 416, 416]; outputs per stride 8, 16, 32: class scores `792`, `814`, `836` [1, anchors, 80] (sigmoid applied) and box distributions `795`, `817`, `839` [1, anchors, 32] (4 sides × 8 bins). The file has three levels (2704, 676, 169 anchors), although OpenCV Zoo's `nanodet.py` lists a stride of 64 too. YOLOX input `images` [1, 3, 640, 640]; output `output` [1, 8400, 85].
+- Pre- and postprocessing follow OpenCV Zoo's `nanodet.py`, `yolox.py`, and `demo.py`: NanoDet centred letterbox with black padding, BGR mean/std normalization, softmax-expectation box decoding, class-agnostic NMS at 0.6; YOLOX top-left letterbox padded with 114, raw 0–255 values, (offset + grid) × stride and exp(size) × stride decoding, score = objectness × class score, per-class NMS at 0.5. The demos convert frames to RGB first; the lab feeds BGR, the order of both training pipelines, which found more phones on the test photos (Phase 6 report).
+
+### Phase 6 pins
+
+| ID                     | Source                                                                    | Size (bytes) | SHA-256                                                            |
+| ---------------------- | ------------------------------------------------------------------------- | -----------: | ------------------------------------------------------------------ |
+| `mp-effdet-lite0-int8` | Google Cloud Storage, `object_detector/efficientdet_lite0/int8/1/`        |    4,602,795 | `0720bf247bd76e6594ea28fa9c6f7c5242be774818997dbbeffc4da460c723bb` |
+| `mp-effdet-lite2-int8` | Google Cloud Storage, `object_detector/efficientdet_lite2/int8/1/`        |    7,515,971 | `b3f50554cb0ea559e90328845f7d9ba4d13c8bff372914d24e06bc8bb72fa896` |
+| `ocv-nanodet-plus`     | OpenCV Zoo commit `510899a2a0adb8c25957915fd030d66dbd553919` (2022-11-13) |    3,800,954 | `4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186` |
+| `ocv-yolox-s`          | OpenCV Zoo commit `0b263e423d012606b83d1f81238d11c177da2b9c` (2022-11-13) |   35,858,002 | `c5c2d13e59ae883e6af3b45daea64af4833a4951c92d116ec270d9ddbe998063` |
+
+Not pinned, for reference (checked 2026-11-11): Lite0 float16 7,254,339 bytes, `4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993`; Lite2 float16 12,138,859 bytes, `5d4ebec1029bc9907aeadb9e7b4ac9cb1da6a19d01ad375210a9ae18ba173302`.
 
 ## Not selected or excluded
 

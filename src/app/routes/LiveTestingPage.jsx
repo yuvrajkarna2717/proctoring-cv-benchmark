@@ -13,6 +13,7 @@ import { EngineCard } from "../../ui/detections/EngineCard.jsx";
 import { CalibrationPanel } from "../../ui/identity/CalibrationPanel.jsx";
 import { ImageQualityPanel } from "../../ui/quality/ImageQualityPanel.jsx";
 import { IdentityPanel } from "../../ui/identity/IdentityPanel.jsx";
+import { ObjectsPanel } from "../../ui/objects/ObjectsPanel.jsx";
 import { ViolationsPanel } from "../../ui/violations/ViolationsPanel.jsx";
 
 /**
@@ -36,6 +37,7 @@ export function LiveTestingPage() {
       <Col xl={7} lg={6}>
         <DetectionToolbar />
         <ViolationsPanel />
+        <ObjectsPanel />
         {snapshot.engines.map((engine) => (
           <EngineCard key={engine.id} engine={engine} />
         ))}

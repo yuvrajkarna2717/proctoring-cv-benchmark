@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LabController, faceHintFrom } from "../../src/app/LabController.js";
 import { DEFAULT_LAB_CONFIG } from "../../src/config/detection.config.js";
+import { objectResult } from "../../src/engines/objects/objectObservations.js";
 import {
   FakeEngine,
   createFakeFrame,
@@ -182,6 +183,8 @@ const FAKE_LOADERS = {
   "face-landmarker": async () => FakeEngine,
   "face-verifier": async () => FakeEngine,
   "image-quality": async () => FakeEngine,
+  "mp-object-detector": async () => FakeEngine,
+  "ort-object-detector": async () => FakeEngine,
 };
 
 function createController(camera, options = {}) {
@@ -320,10 +323,16 @@ describe("LabController engines", () => {
       "face-landmarker",
       "face-verifier",
       "image-quality",
+      "objects-effdet-lite0",
+      "objects-effdet-lite2",
+      "objects-nanodet",
+      "objects-yolox",
       "probe-high",
       "probe-low",
     ]);
     expect(report.config.imageQuality).toMatchObject({ sourceEngineId: "image-quality" });
+    expect(report.config.objects).toMatchObject({ sourceEngineId: "objects-effdet-lite2" });
+    expect(report.app.phase).toBe(6);
     expect(JSON.parse(JSON.stringify(report))).toEqual(report);
   });
 });
@@ -344,6 +353,7 @@ describe("LabController violations", () => {
     // Only the violation source engine runs, so frames and captures can be counted exactly.
     await controller.setEngineEnabled("face-verifier", false);
     await controller.setEngineEnabled("image-quality", false);
+    await controller.setEngineEnabled("objects-effdet-lite2", false);
     const results = [];
     controller.subscribeResults((notice) => results.push(notice));
     const video = createFakeVideo();
@@ -403,6 +413,7 @@ describe("LabController attention", () => {
     const config = structuredClone(DEFAULT_LAB_CONFIG);
     config.engines.find((engine) => engine.id === "face-verifier").scheduler.enabled = false;
     config.engines.find((engine) => engine.id === "image-quality").scheduler.enabled = false;
+    config.engines.find((engine) => engine.id === "objects-effdet-lite2").scheduler.enabled = false;
     config.attention.baseline = { learnMs: 1000, minSamples: 3 };
     config.violations.rules.GAZE_AWAY = { ...config.violations.rules.GAZE_AWAY, minDurationMs: 0 };
     const { factory } = createFakeWorkerFactory({
@@ -543,6 +554,7 @@ describe("LabController image quality", () => {
     );
     const config = structuredClone(DEFAULT_LAB_CONFIG);
     config.engines.find((engine) => engine.id === "face-verifier").scheduler.enabled = false;
+    config.engines.find((engine) => engine.id === "objects-effdet-lite2").scheduler.enabled = false;
     const quality = config.engines.find((engine) => engine.id === "image-quality");
     quality.scheduler = { ...quality.scheduler, targetFps: 5, yieldToHigherPriority: false };
     const { factory } = createFakeWorkerFactory({
@@ -627,6 +639,7 @@ describe("LabController identity", () => {
     const config = structuredClone(DEFAULT_LAB_CONFIG);
     config.engines.find((engine) => engine.id === "face-landmarker").scheduler.enabled = false;
     config.engines.find((engine) => engine.id === "image-quality").scheduler.enabled = false;
+    config.engines.find((engine) => engine.id === "objects-effdet-lite2").scheduler.enabled = false;
     const verifier = config.engines.find((engine) => engine.id === "face-verifier");
     verifier.scheduler = { ...verifier.scheduler, targetFps: 10, yieldToHigherPriority: false };
     config.identity.enrollment = { ...config.identity.enrollment, samples: 2, minIntervalMs: 0 };
@@ -737,5 +750,95 @@ describe("LabController page events", () => {
     controller.stopCamera();
     win.dispatchEvent(new Event("blur"));
     expect(monitorLog()).toHaveLength(4);
+  });
+});
+
+/** Object-detector stand-in: NanoDet "sees" a phone on every frame, other models see nothing. */
+class FakePhoneEngine extends FakeEngine {
+  async onDetect(_frame, meta, timer) {
+    timer.start("inference");
+    const phone = this.config.model === "ocv-nanodet-plus";
+    return objectResult(
+      phone
+        ? [
+            {
+              classId: 67,
+              label: "cell phone",
+              score: 0.9,
+              box: { x: 0.4, y: 0.4, width: 0.1, height: 0.2 },
+            },
+          ]
+        : [],
+      meta,
+      { model: String(this.config.model), classes: [], minScore: 0.3, maxDetections: 10 },
+    );
+  }
+}
+
+describe("LabController objects", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("feeds the source engine's detections to PHONE_DETECTED, counts every object engine, and switches the source", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => createFakeFrame()),
+    );
+    const config = structuredClone(DEFAULT_LAB_CONFIG);
+    config.objects.sourceEngineId = "objects-nanodet";
+    for (const engine of config.engines) {
+      const object = engine.id === "objects-nanodet" || engine.id === "objects-yolox";
+      engine.scheduler = object
+        ? { ...engine.scheduler, enabled: true, targetFps: 10, yieldToHigherPriority: false }
+        : { ...engine.scheduler, enabled: false };
+    }
+    const { factory } = createFakeWorkerFactory({
+      ...FAKE_LOADERS,
+      "ort-object-detector": async () => FakePhoneEngine,
+    });
+    const controller = createController(createFakeCamera(), { createWorker: factory, config });
+    const video = createFakeVideo();
+    await controller.startCamera(video);
+    controller.startDetection();
+    const active = () =>
+      controller.buildSnapshot().violations.active.find((v) => v.type === "PHONE_DETECTED");
+    for (let n = 0; n < 20 && !active(); n += 1) {
+      await flush(120);
+      video.deliverFrame();
+    }
+    expect(active()).toMatchObject({
+      label: "cell phone",
+      maxScore: 0.9,
+      sourceEngineId: "objects-nanodet",
+    });
+    let snapshot = controller.buildSnapshot();
+    expect(snapshot.objects.sourceEngineId).toBe("objects-nanodet");
+    expect(snapshot.objects.engines["objects-nanodet"].framesWith["cell phone"]).toBeGreaterThan(1);
+    expect(snapshot.log.map((entry) => entry.message)).toContainEqual(
+      expect.stringMatching(/^PHONE_DETECTED started \(cell phone at score up to 0\.9 for/),
+    );
+
+    await vi.waitFor(() =>
+      expect(controller.buildSnapshot().objects.engines["objects-yolox"]?.frames).toBeGreaterThan(
+        0,
+      ),
+    );
+    snapshot = controller.buildSnapshot();
+    expect(snapshot.objects.engines["objects-yolox"].framesWith).toEqual({});
+
+    expect(() => controller.setObjectSource("face-landmarker")).toThrow(
+      expect.objectContaining({ code: "NOT_OBJECT_ENGINE" }),
+    );
+    controller.setObjectSource("objects-yolox");
+    snapshot = controller.buildSnapshot();
+    expect(snapshot.objects.sourceEngineId).toBe("objects-yolox");
+    expect(snapshot.violations.objectSourceEngineId).toBe("objects-yolox");
+    expect(snapshot.violations.active).toEqual([]);
+    expect(snapshot.violations.history.at(-1)).toMatchObject({
+      type: "PHONE_DETECTED",
+      endReason: "source-changed",
+    });
+    expect(controller.buildReport().config.objects.sourceEngineId).toBe("objects-yolox");
   });
 });

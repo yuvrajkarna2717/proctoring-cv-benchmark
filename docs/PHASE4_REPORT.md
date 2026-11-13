@@ -1,5 +1,7 @@
 # Phase 4 report — Head pose, gaze, eye state
 
+> **Change, 2026-11-12:** `GAZE_AWAY_REPEATED` (and its `GlanceCounter`) was removed at the user's request. This report describes Phase 4 as delivered; `GAZE_AWAY`, `HEAD_TURNED`, and `EYES_CLOSED` are unchanged, and the presets no longer carry glance settings.
+
 Date: 2026-11-11. Deliverable: head pose, gaze direction, and eye state from the MediaPipe Face Landmarker. These are judged against each person's own screen area, which is set by a guided calibration or a baseline learned at the start. The rules are `GAZE_AWAY`, `GAZE_AWAY_REPEATED`, `HEAD_TURNED`, and `EYES_CLOSED`, with lenient, balanced, and strict presets. Verified with unit tests, mutation checks, a still portrait run through the real app, and the browser smoke test. Accuracy against annotated recordings with real people is still open (see "Exit criteria").
 
 ## The problem this phase addresses

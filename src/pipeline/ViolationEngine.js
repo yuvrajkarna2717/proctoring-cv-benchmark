@@ -1,5 +1,4 @@
 import { VIOLATION_TYPES, validateViolationRule } from "../config/schema.js";
-import { GlanceCounter } from "./GlanceCounter.js";
 import { TemporalCondition } from "./TemporalCondition.js";
 
 /**
@@ -11,10 +10,11 @@ import { TemporalCondition } from "./TemporalCondition.js";
  * `read` returns whether the condition holds on a sample and the `measure` the
  * TemporalCondition tracks as `peak` while it holds: the face count, the negated similarity
  * (so the peak is the lowest similarity), the angle beyond the tolerated area, the eye closure,
- * or the glance count. It returns null when the sample says nothing about the rule (for
+ * or the object score. It returns null when the sample says nothing about the rule (for
  * example gaze during a blink); such samples are skipped, like missing frames.
  *
- * @typedef {'face-count' | 'identity' | 'attention' | 'quality'} RuleInput
+ * @typedef {'face-count' | 'identity' | 'attention' | 'quality' | 'objects'} RuleInput
+ * @typedef {import('../objects/objectMonitor.js').ObjectSample} ObjectSample
  * @typedef {import('../attention/attentionModel.js').AttentionSample} AttentionSample
  * @typedef {import('../attention/attentionModel.js').Direction} Direction
  * @typedef {import('../quality/qualityModel.js').QualitySample} QualitySample
@@ -67,26 +67,6 @@ const RULE_DEFINITIONS = Object.freeze({
         ? null
         : { holds: gaze.state === "away", measure: gaze.excessDeg ?? 0, direction: gaze.direction },
   },
-  GAZE_AWAY_REPEATED: {
-    label: "Repeated looks away toward the same side",
-    input: /** @type {RuleInput} */ ("attention"),
-    measureKind: "glances",
-    /**
-     * Uses the glance counter, which the engine updates before the rules are read.
-     * @param {AttentionSample} sample
-     * @param {unknown} _rule
-     * @param {{ glances: { holds: boolean, count: number, direction: Direction | null } | null }} context
-     * @returns {RuleReading | null}
-     */
-    read: (sample, _rule, context) =>
-      sample.gaze.state === "undecided" || !context.glances
-        ? null
-        : {
-            holds: context.glances.holds,
-            measure: context.glances.count,
-            direction: context.glances.direction,
-          },
-  },
   HEAD_TURNED: {
     label: "Head turned away from the screen",
     input: /** @type {RuleInput} */ ("attention"),
@@ -125,17 +105,40 @@ const RULE_DEFINITIONS = Object.freeze({
             reasons: lighting.reasons,
           },
   },
-  LOW_IMAGE_QUALITY: {
-    label: "Image unsuitable (blurry, face too small, low resolution)",
-    input: /** @type {RuleInput} */ ("quality"),
-    measureKind: "reasons",
-    /** @param {QualitySample} sample @returns {RuleReading | null} */
-    read: ({ image }) =>
-      image.state === "undecided"
-        ? null
-        : { holds: image.state === "issue", measure: image.reasons.length, reasons: image.reasons },
-  },
+  PHONE_DETECTED: objectRuleDefinition("Mobile phone in view"),
 });
+
+/**
+ * Object rules. The engine keeps the vote state (the last `window` hits per rule) and passes
+ * it in `context.votes`; the reading holds while enough recent samples were hits, and its
+ * measure is the frame's score for the rule's label.
+ *
+ * @param {string} label
+ */
+function objectRuleDefinition(label) {
+  return {
+    label,
+    input: /** @type {RuleInput} */ ("objects"),
+    measureKind: "score",
+    /**
+     * @param {ObjectSample} sample
+     * @param {{ label?: string }} rule
+     * @param {{ votes?: { holds: boolean } | null }} context
+     * @returns {RuleReading}
+     */
+    read: (sample, rule, context) => ({
+      holds: context.votes?.holds ?? false,
+      measure: sample.best[/** @type {string} */ (rule.label)] ?? 0,
+    }),
+  };
+}
+
+/** Rules that read object samples. */
+export const OBJECT_RULE_TYPES = Object.freeze(
+  /** @type {ViolationType[]} */ (
+    VIOLATION_TYPES.filter((type) => RULE_DEFINITIONS[type].input === "objects")
+  ),
+);
 
 /** A quality sample this recent is stamped on violations of other rules as `imageIssues`. */
 const IMAGE_ISSUE_MAX_AGE_MS = 3000;
@@ -164,11 +167,13 @@ const SEVERITY_RANK = Object.freeze({ low: 0, medium: 1, high: 2 });
  * @property {number | null} maxExcessDeg GAZE_AWAY, HEAD_TURNED: largest angle beyond the
  *   tolerated area
  * @property {number | null} maxClosure EYES_CLOSED: highest mean blink score
- * @property {number | null} glanceCount GAZE_AWAY_REPEATED: most glances in the window
+ * @property {number | null} maxScore PHONE_DETECTED: highest score of the label
+ *   on the frames that counted as hits
+ * @property {string | null} label object rules: the COCO class
  * @property {Direction | null} direction attention rules: direction at the largest measure
  * @property {'calibration' | 'learned' | null} baseline attention rules: what the angles were
  *   measured against
- * @property {string[] | null} reasons LIGHTING_ISSUE, LOW_IMAGE_QUALITY: reasons seen during
+ * @property {string[] | null} reasons LIGHTING_ISSUE: reasons seen during
  *   the violation, most frequent first
  * @property {string[] | null} imageIssues other rules: lighting and image reasons of the latest
  *   image-quality sample when the violation started ([] = image fine; null = no sample in the
@@ -193,6 +198,7 @@ function emptyStats() {
       disabled: 0,
       "reference-changed": 0,
       "baseline-changed": 0,
+      "source-changed": 0,
     },
   };
 }
@@ -210,7 +216,7 @@ function measureFields(type, peak) {
     minSimilarity: kind === "similarity" ? -peak : null,
     maxExcessDeg: kind === "excess" ? Math.round(peak * 10) / 10 : null,
     maxClosure: kind === "closure" ? Math.round(peak * 1000) / 1000 : null,
-    glanceCount: kind === "glances" ? peak : null,
+    maxScore: kind === "score" ? Math.round(peak * 1000) / 1000 : null,
   };
 }
 
@@ -248,6 +254,11 @@ export class ViolationEngine {
   #runPeaks = new Map();
   /** @type {Map<ViolationType, Map<string, number>>} reasons in the current run of quality rules */
   #runReasons = new Map();
+  /** @type {Map<ViolationType, { hits: boolean[], lastAt: number | null }>} object rule votes */
+  #votes = new Map();
+  /** @type {string | null} engine whose detections the object samples come from */
+  #objectSourceEngineId;
+  #objectFramesEvaluated = 0;
   /** @type {string | null} engine whose observations the quality samples come from */
   #qualitySourceEngineId;
   #qualityFramesEvaluated = 0;
@@ -259,8 +270,6 @@ export class ViolationEngine {
   #history = [];
   /** @type {Map<ViolationType, ReturnType<typeof emptyStats>>} */
   #stats = new Map();
-  /** @type {GlanceCounter} */
-  #glances;
   #nextId = 1;
   #framesEvaluated = 0;
   /** @type {number | null} */
@@ -275,7 +284,7 @@ export class ViolationEngine {
   /**
    * @param {import('../config/schema.js').ViolationsConfig} config validated configuration
    * @param {{ identitySourceEngineId?: string | null, attentionSourceEngineId?: string | null,
-   *   qualitySourceEngineId?: string | null }} [options]
+   *   qualitySourceEngineId?: string | null, objectSourceEngineId?: string | null }} [options]
    */
   constructor(
     config,
@@ -283,13 +292,14 @@ export class ViolationEngine {
       identitySourceEngineId = null,
       attentionSourceEngineId = null,
       qualitySourceEngineId = null,
+      objectSourceEngineId = null,
     } = {},
   ) {
     this.#config = structuredClone(config);
     this.#identitySourceEngineId = identitySourceEngineId;
     this.#attentionSourceEngineId = attentionSourceEngineId;
     this.#qualitySourceEngineId = qualitySourceEngineId;
-    this.#glances = new GlanceCounter({ maxGapMs: this.#config.maxGapMs });
+    this.#objectSourceEngineId = objectSourceEngineId;
     this.#reset();
   }
 
@@ -361,6 +371,57 @@ export class ViolationEngine {
   }
 
   /**
+   * Evaluates one object sample of the object rules' source engine.
+   *
+   * @param {ObjectSample} sample
+   */
+  observeObjects(sample) {
+    this.#objectFramesEvaluated += 1;
+    this.#evaluate("objects", sample.at, sample);
+  }
+
+  /** @returns {string | null} engine whose detections feed the object rules */
+  get objectSourceEngineId() {
+    return this.#objectSourceEngineId;
+  }
+
+  /**
+   * Label → minimum score of every object rule (enabled or not), for per-engine counts.
+   * @returns {Record<string, number>}
+   */
+  objectRuleLimits() {
+    /** @type {Record<string, number>} */
+    const limits = {};
+    for (const type of OBJECT_RULE_TYPES) {
+      const rule = /** @type {{ label: string, minScore: number }} */ (
+        /** @type {unknown} */ (this.#config.rules[type])
+      );
+      limits[rule.label] = Math.min(limits[rule.label] ?? 1, rule.minScore);
+    }
+    return limits;
+  }
+
+  /**
+   * Ends active object violations, for example when the object source engine is unloaded.
+   * @param {import('./TemporalCondition.js').EndReason} reason
+   */
+  interruptObjectRules(reason) {
+    for (const type of OBJECT_RULE_TYPES) this.interruptRule(type, reason);
+  }
+
+  /**
+   * Switches the engine the object rules read. Active object violations end with
+   * "source-changed": a phone seen by one model says nothing about another model's frames.
+   *
+   * @param {string} engineId
+   */
+  setObjectSource(engineId) {
+    if (engineId === this.#objectSourceEngineId) return;
+    this.#objectSourceEngineId = engineId;
+    this.interruptObjectRules("source-changed");
+  }
+
+  /**
    * Reasons of the latest quality sample, if it is recent relative to `at`.
    * @param {number} at
    * @returns {string[] | null}
@@ -377,16 +438,14 @@ export class ViolationEngine {
    * @param {any} value face count, similarity, or attention sample
    */
   #evaluate(input, at, value) {
-    /** @type {{ glances: ReturnType<GlanceCounter['update']> | null }} */
-    const context = { glances: null };
-    const repeated = this.#config.rules.GAZE_AWAY_REPEATED;
-    if (input === "attention" && repeated.enabled && value.gaze.state !== "undecided") {
-      context.glances = this.#glances.update(at, value.gaze.state, value.gaze.direction, repeated);
-    }
+    /** @type {{ votes: { holds: boolean } | null }} */
+    const context = { votes: null };
     for (const type of VIOLATION_TYPES) {
       const definition = RULE_DEFINITIONS[type];
       const rule = this.#config.rules[type];
       if (definition.input !== input || !rule.enabled) continue;
+      if (input === "objects")
+        context.votes = this.#vote(type, at, value, /** @type {any} */ (rule));
       const reading = definition.read(value, /** @type {any} */ (rule), context);
       if (!reading) continue;
       const condition = /** @type {TemporalCondition} */ (this.#conditions.get(type));
@@ -431,6 +490,26 @@ export class ViolationEngine {
     }
   }
 
+  /**
+   * Adds one sample to an object rule's vote window. A gap longer than the rule's maxGapMs
+   * starts the window afresh.
+   *
+   * @param {ViolationType} type
+   * @param {number} at
+   * @param {ObjectSample} sample
+   * @param {{ label: string, minScore: number, votes: number, window: number, maxGapMs: number }} rule
+   */
+  #vote(type, at, sample, rule) {
+    const state = this.#votes.get(type) ?? { hits: /** @type {boolean[]} */ ([]), lastAt: null };
+    if (state.lastAt !== null && at - state.lastAt > rule.maxGapMs) state.hits = [];
+    state.lastAt = at;
+    state.hits.push((sample.best[rule.label] ?? 0) >= rule.minScore);
+    while (state.hits.length > rule.window) state.hits.shift();
+    this.#votes.set(type, state);
+    const count = state.hits.filter(Boolean).length;
+    return { holds: count >= rule.votes, count };
+  }
+
   /** Forgets the per-run details (direction, reasons) of a rule. @param {ViolationType} type */
   #clearRun(type) {
     this.#runPeaks.delete(type);
@@ -471,7 +550,7 @@ export class ViolationEngine {
   interruptRule(type, reason) {
     const end = /** @type {TemporalCondition} */ (this.#conditions.get(type)).interrupt(reason);
     this.#clearRun(type);
-    if (type === "GAZE_AWAY_REPEATED") this.#glances.reset();
+    this.#votes.delete(type);
     if (end) this.#apply(type, end, null);
   }
 
@@ -485,6 +564,7 @@ export class ViolationEngine {
       if (condition.isStale(now)) {
         const end = condition.interrupt("data-gap");
         this.#clearRun(type);
+        this.#votes.delete(type);
         if (end) this.#apply(type, end, null);
       }
     }
@@ -495,7 +575,7 @@ export class ViolationEngine {
    * @param {'stopped' | 'data-gap'} reason
    */
   interrupt(reason) {
-    this.#glances.reset();
+    this.#votes.clear();
     for (const type of VIOLATION_TYPES) {
       const end = /** @type {TemporalCondition} */ (this.#conditions.get(type)).interrupt(reason);
       this.#clearRun(type);
@@ -542,7 +622,7 @@ export class ViolationEngine {
     if (!next.enabled) {
       const end = condition.interrupt("disabled");
       this.#clearRun(type);
-      if (type === "GAZE_AWAY_REPEATED") this.#glances.reset();
+      this.#votes.delete(type);
       if (end) this.#apply(type, end, null);
     }
     return { ...next };
@@ -575,7 +655,8 @@ export class ViolationEngine {
     this.#runReasons.clear();
     this.#lastQuality = null;
     this.#qualityFramesEvaluated = 0;
-    this.#glances.reset();
+    this.#votes.clear();
+    this.#objectFramesEvaluated = 0;
     this.#active.clear();
     this.#history = [];
     this.#framesEvaluated = 0;
@@ -601,7 +682,8 @@ export class ViolationEngine {
       lastAttentionAt: this.#lastAttentionAt,
       qualitySourceEngineId: this.#qualitySourceEngineId,
       qualityFramesEvaluated: this.#qualityFramesEvaluated,
-      glances: this.#glances.glances,
+      objectSourceEngineId: this.#objectSourceEngineId,
+      objectFramesEvaluated: this.#objectFramesEvaluated,
       pageHidden: this.#hiddenSince !== null,
       rules: VIOLATION_TYPES.map((type) => ({
         type,
@@ -644,15 +726,9 @@ export class ViolationEngine {
         baseline: input === "attention" ? baseline : null,
         reasons: input === "quality" ? byFrequency(this.#runReasons.get(type)) : null,
         imageIssues: input === "quality" ? null : this.#imageIssuesAt(transition.startedAt),
+        label: input === "objects" ? /** @type {any} */ (rule).label : null,
         pageHidden: this.#wasHiddenSince(transition.startedAt),
-        sourceEngineId:
-          input === "identity"
-            ? (this.#identitySourceEngineId ?? "unknown")
-            : input === "attention"
-              ? (this.#attentionSourceEngineId ?? this.#config.sourceEngineId)
-              : input === "quality"
-                ? (this.#qualitySourceEngineId ?? "unknown")
-                : this.#config.sourceEngineId,
+        sourceEngineId: this.#sourceOf(input),
       };
       const escalated = this.#escalateSilently(violation);
       this.#active.set(type, escalated);
@@ -691,6 +767,22 @@ export class ViolationEngine {
     stats.longestMs = Math.max(stats.longestMs, ended.durationMs);
     stats.endReasons[transition.reason] += 1;
     this.#emit({ type: "violation-end", violation: { ...ended } });
+  }
+
+  /** @param {RuleInput} input */
+  #sourceOf(input) {
+    switch (input) {
+      case "identity":
+        return this.#identitySourceEngineId ?? "unknown";
+      case "attention":
+        return this.#attentionSourceEngineId ?? this.#config.sourceEngineId;
+      case "quality":
+        return this.#qualitySourceEngineId ?? "unknown";
+      case "objects":
+        return this.#objectSourceEngineId ?? "unknown";
+      default:
+        return this.#config.sourceEngineId;
+    }
   }
 
   /**
