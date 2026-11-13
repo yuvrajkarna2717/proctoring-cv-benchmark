@@ -1086,6 +1086,9 @@ export class LabController {
         `${violation.type} ended after ${seconds(violation.durationMs)} (${violation.endReason})`,
       );
     }
+    // Violations are rare (a few a minute), so each change is shown at once instead of waiting
+    // up to uiRefreshIntervalMs for the next refresh.
+    this.#publish();
   }
 
   /** @param {import('../identity/IdentityManager.js').IdentityEvent} event */

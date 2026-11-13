@@ -464,7 +464,7 @@ describe("LabController attention", () => {
     snapshot = controller.buildSnapshot();
     expect(snapshot.attention.config).toMatchObject({ preset: "strict", marginDeg: 3 });
     expect(snapshot.violations.rules.find((r) => r.type === "GAZE_AWAY").config).toMatchObject({
-      minDurationMs: 300,
+      minDurationMs: 100,
       enabled: true,
     });
     controller.updateViolationRule("GAZE_AWAY", { severity: "high" });

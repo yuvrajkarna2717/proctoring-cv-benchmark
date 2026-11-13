@@ -1215,7 +1215,7 @@ async function main() {
       "Q: strict preset applied from the UI to tolerances and rules",
       qStrict.attention.config.preset === "strict" &&
         qStrict.attention.config.marginDeg === 3 &&
-        scenarios.Q_attention.strictPreset.gazeAwayMinDurationMs === 300 &&
+        scenarios.Q_attention.strictPreset.gazeAwayMinDurationMs === 100 &&
         qEnd.attention.config.preset === "balanced",
       scenarios.Q_attention.strictPreset,
     );

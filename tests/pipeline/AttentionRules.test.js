@@ -45,6 +45,12 @@ function sample(at, options = {}) {
   };
 }
 
+/**
+ * GAZE_AWAY timings for the tests of the rule's mechanics, independent of the tuned defaults: at
+ * 5 FPS confirmed on the 4th frame away (600 ms), ended on the 3rd frame back.
+ */
+const GAZE_TIMINGS = { GAZE_AWAY: { minDurationMs: 500, clearAfterMs: 300, cooldownMs: 2000 } };
+
 function createEngine(ruleOverrides = {}) {
   const config = structuredClone(DEFAULT_LAB_CONFIG.violations);
   for (const [type, patch] of Object.entries(ruleOverrides)) {
@@ -68,9 +74,9 @@ function feed(engine, start, count, options) {
 
 describe("GAZE_AWAY", () => {
   it("starts after minDurationMs away, with the largest angle, its direction, and the baseline", () => {
-    const { engine, events } = createEngine();
+    const { engine, events } = createEngine(GAZE_TIMINGS);
     feed(engine, 0, 3, { gaze: "on" });
-    // 500 ms default: away samples from 600 on confirm on the 4th, at 1200.
+    // 500 ms: away samples from 600 on confirm on the 4th, at 1200.
     feed(engine, 600, 11, (i) => ({
       gaze: "away",
       excess: i === 2 ? 9 : 3,
@@ -90,8 +96,8 @@ describe("GAZE_AWAY", () => {
   });
 
   it("ignores looks shorter than minDurationMs (glances)", () => {
-    const { engine, events } = createEngine();
-    // Three away frames span 400 ms, less than the 500 ms default.
+    const { engine, events } = createEngine(GAZE_TIMINGS);
+    // Three away frames span 400 ms, less than 500 ms.
     let at = feed(engine, 0, 3, { gaze: "away" });
     at = feed(engine, at, 2, { gaze: "on" });
     feed(engine, at, 3, { gaze: "away" });
@@ -99,7 +105,7 @@ describe("GAZE_AWAY", () => {
   });
 
   it("ends 300 ms after the gaze is back, at the first frame back on screen", () => {
-    const { engine, events } = createEngine();
+    const { engine, events } = createEngine(GAZE_TIMINGS);
     let at = feed(engine, 0, 5, { gaze: "away" }); // confirmed at 600
     at = feed(engine, at, 1, { gaze: "on" }); // 1000: clearing starts
     expect(events.filter((e) => e.type === "violation-end")).toEqual([]);
@@ -112,7 +118,7 @@ describe("GAZE_AWAY", () => {
   });
 
   it("skips undecided samples instead of letting them end or extend a look away", () => {
-    const { engine, events } = createEngine();
+    const { engine, events } = createEngine(GAZE_TIMINGS);
     // Away, a blink (gaze undecided) at 400 ms, away again: one continuous run that confirms
     // at 600 ms with three away frames.
     feed(engine, 0, 6, (i) => ({ gaze: i === 2 ? "undecided" : "away" }));

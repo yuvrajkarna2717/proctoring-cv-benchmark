@@ -76,7 +76,7 @@ Status (2026-11-11): implemented, with additions aimed at users finding the old 
 - Long violations escalate in severity.
 - Lenient, balanced, and strict presets set tolerances and timings together.
 
-Defaults (balanced): GAZE_AWAY 500 ms, clear after 300 ms, cooldown 2000 ms (tuned by the user on a real webcam; first set to 2000 / 600 / 3000), HEAD_TURNED 1500 ms, EYES_CLOSED 2000 ms. Conventions were checked on one public-domain portrait; enabling blendshapes and matrices added no measurable latency. `solvePnP` was not compared (it needs OpenCV.js). Open: real-person checks (checklist in `docs/TESTING_GUIDE.md`) and annotated recordings (Phase 7). See `docs/PHASE4_REPORT.md`.
+Defaults (balanced): GAZE_AWAY 100 ms, clear after 100 ms, cooldown 1000 ms (tuned by the user for fast reports; first 2000 / 600 / 3000, then 500 / 300 / 2000 after a real-webcam test), HEAD_TURNED 1500 ms, EYES_CLOSED 2000 ms. Conventions were checked on one public-domain portrait; enabling blendshapes and matrices added no measurable latency. `solvePnP` was not compared (it needs OpenCV.js). Open: real-person checks (checklist in `docs/TESTING_GUIDE.md`) and annotated recordings (Phase 7). See `docs/PHASE4_REPORT.md`.
 
 ### Phase 5 — Image quality (implemented; real-condition checks pending)
 

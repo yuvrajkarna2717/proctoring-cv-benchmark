@@ -198,11 +198,11 @@ Measuring happens in the face worker; judging happens on the main thread, agains
 
 **Rules** (`ViolationEngine.observeAttention`). Each rule reads its part of the sample; an undecided part is skipped like a missing frame, so a blink neither ends nor extends a look away.
 
-| Rule          | Condition                            | Balanced default                                                         |
-| ------------- | ------------------------------------ | ------------------------------------------------------------------------ |
-| `GAZE_AWAY`   | gaze away on every evaluated frame   | 500 ms, clear 300 ms, cooldown 2 s, medium → high after 8 s (user-tuned) |
-| `HEAD_TURNED` | head turned on every evaluated frame | 1500 ms, clear 600 ms, cooldown 3 s, medium → high after 8 s             |
-| `EYES_CLOSED` | eyes closed on every evaluated frame | 2000 ms, clear 400 ms, cooldown 5 s, low → medium after 10 s             |
+| Rule          | Condition                            | Balanced default                                                                     |
+| ------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
+| `GAZE_AWAY`   | gaze away on every evaluated frame   | 100 ms (2nd frame), clear 100 ms, cooldown 1 s, medium → high after 8 s (user-tuned) |
+| `HEAD_TURNED` | head turned on every evaluated frame | 1500 ms, clear 600 ms, cooldown 3 s, medium → high after 8 s                         |
+| `EYES_CLOSED` | eyes closed on every evaluated frame | 2000 ms, clear 400 ms, cooldown 5 s, low → medium after 10 s                         |
 
 Attention violations record `maxExcessDeg` (or `maxClosure`), the direction at the largest measure, and the baseline (`calibration` or `learned`). Escalation raises `severity` once and keeps `initialSeverity` and `escalatedAt`. Replacing or resetting the baseline ends active attention violations with `baseline-changed`.
 

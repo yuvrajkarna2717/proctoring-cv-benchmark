@@ -6,8 +6,9 @@
  *
  * The three presets keep the same structure, so "lenient" never ignores a pattern that
  * "strict" reports; it only needs more of it:
- * - a look away (GAZE_AWAY) after 3.5 / 0.5 / 0.3 s (balanced as tuned by the user on a real
- *   webcam: 500 ms, clear after 300 ms, cooldown 2000 ms),
+ * - a look away (GAZE_AWAY) after 3.5 s (lenient) or on the second frame away, about 0.2 s
+ *   (balanced as tuned by the user for fast reports: 100 ms, clear after 100 ms, cooldown
+ *   1000 ms; strict the same),
  * - a turned head (HEAD_TURNED) and closed eyes (EYES_CLOSED) after longer or shorter times.
  *
  * All values are starting points to be checked against annotated recordings (Phases 7–8).
@@ -56,7 +57,7 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
   }),
   balanced: Object.freeze({
     description:
-      "The default. Blinks and looking down at the keyboard pass; a look outside the screen area of 0.5 s or a clearly turned head is reported.",
+      "The default. Blinks and looking down at the keyboard pass; a look outside the screen area of about 0.2 s (two frames) or a clearly turned head is reported.",
     attention: {
       marginDeg: 5,
       extraDownMarginDeg: 5,
@@ -64,11 +65,12 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
       head: { maxYawDeg: 30, maxPitchUpDeg: 20, maxPitchDownDeg: 25 },
     },
     rules: {
-      // Tuned by the user on a real webcam (was 2000 / 600 / 3000).
+      // Tuned by the user for fast reports (was 500 / 300 / 2000, first 2000 / 600 / 3000).
+      // At 5 FPS: confirmed on the 2nd frame away, ended on the 2nd frame back.
       GAZE_AWAY: {
-        minDurationMs: 500,
-        clearAfterMs: 300,
-        cooldownMs: 2000,
+        minDurationMs: 100,
+        clearAfterMs: 100,
+        cooldownMs: 1000,
         escalateAfterMs: 8000,
       },
       HEAD_TURNED: {
@@ -95,11 +97,12 @@ export const ATTENTION_PRESET_VALUES = Object.freeze({
       head: { maxYawDeg: 25, maxPitchUpDeg: 15, maxPitchDownDeg: 20 },
     },
     rules: {
-      // Kept at least as strict as balanced (500 / 300 / 2000 since the user's tuning).
+      // Kept at least as strict as balanced (100 / 100 / 1000 since the user's second tuning);
+      // shorter would report single misread frames. Strict differs in its narrower tolerance.
       GAZE_AWAY: {
-        minDurationMs: 300,
-        clearAfterMs: 300,
-        cooldownMs: 1500,
+        minDurationMs: 100,
+        clearAfterMs: 100,
+        cooldownMs: 1000,
         escalateAfterMs: 5000,
       },
       HEAD_TURNED: {

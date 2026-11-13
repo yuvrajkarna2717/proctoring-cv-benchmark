@@ -1,6 +1,8 @@
 # Phase 4 report — Head pose, gaze, eye state
 
 > **Change, 2026-11-12:** `GAZE_AWAY_REPEATED` (and its `GlanceCounter`) was removed at the user's request. This report describes Phase 4 as delivered; `GAZE_AWAY`, `HEAD_TURNED`, and `EYES_CLOSED` are unchanged, and the presets no longer carry glance settings.
+>
+> **Change, 2026-11-12:** `GAZE_AWAY` now reports on the second frame away (100 ms, clear after 100 ms, cooldown 1000 ms); see "Second tuning" at the end.
 
 Date: 2026-11-11. Deliverable: head pose, gaze direction, and eye state from the MediaPipe Face Landmarker. These are judged against each person's own screen area, which is set by a guided calibration or a baseline learned at the start. The rules are `GAZE_AWAY`, `GAZE_AWAY_REPEATED`, `HEAD_TURNED`, and `EYES_CLOSED`, with lenient, balanced, and strict presets. Verified with unit tests, mutation checks, a still portrait run through the real app, and the browser smoke test. Accuracy against annotated recordings with real people is still open (see "Exit criteria").
 
@@ -148,3 +150,15 @@ The user tested the lab on a real webcam and set GAZE_AWAY to a minimum duration
 - The 2 s cooldown delays a new GAZE_AWAY that starts within 2 s of the previous one's end; such looks are counted as delayed in the rule statistics.
 
 Checks: 329 unit tests pass, including a new test for the 300 ms end.
+
+## Second tuning: faster GAZE_AWAY (2026-11-12)
+
+At the user's request, GAZE_AWAY reports faster: minimum duration 100 ms, clear after 100 ms, cooldown 1000 ms (from 500 / 300 / 2000). These are now the defaults and the balanced preset.
+
+- At 5 FPS a look away is confirmed on its 2nd frame, about 200 ms after it began, so a single misread frame is still not reported. It ends on the 2nd frame back on screen.
+- The limit is 100 ms, not 200 ms, because frames reach the face engine 167–233 ms apart (the scheduler keeps its phase on the 30 fps camera grid). With 200 ms, about half of all looks would wait for a 3rd frame. A simulation of 2000 runs with such gaps confirmed every two-frame look on its 2nd frame, never reported a one-frame look, and ended every look on the 2nd frame back.
+- Strict now matches balanced (it was 300 / 300 / 1500): a shorter limit would report single frames. Strict keeps its narrower tolerance (3° margin, 5° below, against 5° and 10°). Lenient is unchanged at 3.5 s.
+- After a look away ends, a new one is reported once 1 s has passed, if it is still going on.
+- Expect more GAZE_AWAY reports from short glances, for example at notes, a phone, or a second screen.
+
+Checks: 412 unit tests pass. The tests of the rule's mechanics in `tests/pipeline/AttentionRules.test.js` now set their own timings (500 / 300 / 2000) instead of reading the defaults; the strict-preset checks in `tests/app/LabController.test.js` and `scripts/browser-smoke.mjs` expect 100 ms.

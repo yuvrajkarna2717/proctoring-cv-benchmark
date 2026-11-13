@@ -233,13 +233,15 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
         },
         // Attention rules, "balanced" preset (src/attention/presets.js). Evaluated against the
         // person's calibration, or a baseline learned in the first seconds of detection.
-        // Tuned by the user on a real webcam (was 2000 / 600 / 3000). At 5 FPS a look away
-        // confirms on its 4th frame (600 ms) and ends on the 3rd frame back on screen.
+        // Tuned by the user for fast reports (was 500 / 300 / 2000, first 2000 / 600 / 3000).
+        // At 5 FPS a look away confirms on its 2nd frame (about 200 ms), so one misread frame
+        // is not reported, and ends on the 2nd frame back on screen. 100 ms sits between
+        // frames, so camera frame timing (frames 167–233 ms apart) cannot delay it to the 3rd.
         GAZE_AWAY: {
           enabled: true,
-          minDurationMs: 500,
-          clearAfterMs: 300,
-          cooldownMs: 2000,
+          minDurationMs: 100,
+          clearAfterMs: 100,
+          cooldownMs: 1000,
           severity: "medium",
           escalateAfterMs: 8000,
           escalatedSeverity: "high",
