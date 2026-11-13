@@ -4,7 +4,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.jsx";
 import { LabController } from "./app/LabController.js";
+import { DemoPage } from "./app/routes/DemoPage.jsx";
 import { LabControllerContext } from "./ui/common/labContext.js";
+
+// `/demo` shows only the camera and a toast per violation; every other path opens the lab.
+const isDemo = /\/demo\/?$/.test(window.location.pathname);
+if (isDemo) document.title = "Proctoring demo";
 
 const controller = new LabController();
 void controller.loadDeviceProfile();
@@ -24,7 +29,7 @@ window.addEventListener("pagehide", (event) => {
 createRoot(/** @type {HTMLElement} */ (document.getElementById("root"))).render(
   <StrictMode>
     <LabControllerContext value={controller}>
-      <App />
+      {isDemo ? <DemoPage /> : <App />}
     </LabControllerContext>
   </StrictMode>,
 );
