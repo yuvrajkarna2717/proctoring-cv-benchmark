@@ -3,12 +3,13 @@ import Alert from "react-bootstrap/Alert";
 import Button from "react-bootstrap/Button";
 import Card from "react-bootstrap/Card";
 import Form from "react-bootstrap/Form";
+import { formatRetention } from "../common/format.js";
 import { useLabController, useLabSnapshot } from "../common/labContext.js";
 
 /** Explicit consent gate shown before any camera access. */
 export function ConsentNotice() {
   const controller = useLabController();
-  const { consentAt } = useLabSnapshot();
+  const { consentAt, snapshots } = useLabSnapshot();
   const [acknowledged, setAcknowledged] = useState(false);
 
   if (consentAt) {
@@ -32,11 +33,20 @@ export function ConsentNotice() {
             All processing runs locally in this browser. No video, images, or biometric data are
             uploaded.
           </li>
+          {snapshots.enabled && (
+            <li>
+              When a violation starts, a snapshot of the camera image is saved in this browser with
+              the violation&apos;s details, for review. Snapshots are deleted after{" "}
+              {formatRetention(snapshots.maxAgeMs)} (if the browser was closed by then, when the lab
+              is next opened), or earlier with &quot;Delete all&quot; under Snapshots.
+            </li>
+          )}
           <li>
-            No images are stored. If you enroll a reference face or record calibration samples, the
-            lab stores face templates (128 numbers computed from a face, not pictures) in this
-            browser&apos;s storage until you delete them with &quot;Delete all identity data&quot;.
-            Landmarks and templates never appear in exported reports.
+            {snapshots.enabled ? "No other images are stored." : "No images are stored."} If you
+            enroll a reference face or record calibration samples, the lab stores face templates
+            (128 numbers computed from a face, not pictures) in this browser&apos;s storage until
+            you delete them with &quot;Delete all identity data&quot;. Landmarks and templates never
+            appear in exported reports.
           </li>
           <li>
             Exported reports contain timing measurements and device information, never images.

@@ -24,6 +24,8 @@ npm run dev
 
 Open http://localhost:5173, give consent, start the camera, wait until the face engines are ready (about 4 s), and start detection. Enrollment and calibration are in the Identity and Calibration panels under the camera preview.
 
+http://localhost:5173/demo is a page for showing the lab: the camera with its overlay switches, a toast for every violation, gaze calibration and face enrollment, and a log of the session's violations with their snapshots. "Start camera" there also starts detection.
+
 | Script                              | Purpose                                                                             |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
 | `npm run dev`                       | Dev server with cross-origin isolation headers                                      |
@@ -48,6 +50,7 @@ src/
   attention/    gaze, head, and eye classification against the person's baseline, calibration, presets
   quality/      image-quality assessment (lighting and image reasons) from the image-quality engine
   objects/      per-engine object counts and the samples the object rules read
+  snapshots/    camera image and details per violation, stored in IndexedDB for 1 hour
   workers/      worker protocol, engine host, egress guard, per-kind worker entries, main-thread client
   benchmark/    PerformanceMonitor, statistics, DeviceProfiler
   config/       Zod schemas, default configuration, pinned model assets
@@ -73,4 +76,4 @@ reports/        smoke test output (JSON)
 
 Video is processed in the browser only. Production builds enforce this with a Content Security Policy that blocks requests to other origins, sent as a header so it also applies to the workers. Each worker additionally refuses requests to other origins itself; this matters because MediaPipe Tasks Vision 1.2.2 tries to send usage statistics to Google (see `docs/MODEL_LICENSES.md`).
 
-No images are stored. If you enroll a reference face or record calibration samples, the lab stores face templates (128 numbers per face) in this browser's IndexedDB until you click "Delete all identity data". Exported reports contain timings, configuration, device information, observations of the latest frame, the violation history, reference metadata, and calibration rates; never images, landmarks, or face templates.
+When a violation starts, the lab saves a snapshot of the camera image (JPEG, up to 960 px wide) with the violation's details in this browser's IndexedDB, for review under "Snapshots". Snapshots are deleted after 1 hour, or when the lab is next opened if the browser was closed by then, and at once with "Delete all". No other images are stored. If you enroll a reference face or record calibration samples, the lab stores face templates (128 numbers per face) in this browser's IndexedDB until you click "Delete all identity data". Exported reports contain timings, configuration, device information, observations of the latest frame, the violation history, reference metadata, calibration rates, and the number of stored snapshots; never images, landmarks, or face templates.

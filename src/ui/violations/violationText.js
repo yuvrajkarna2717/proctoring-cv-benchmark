@@ -1,8 +1,8 @@
 import { formatDuration, formatNumber } from "../common/format.js";
 
 /**
- * Wording of the demo page's violation toasts and log. Types without an entry here (rules added
- * later) fall back to the rule's label and no detail.
+ * Short wording of violations for the demo's toasts and log and for violation snapshots. Types
+ * without an entry here (rules added later) fall back to the rule's label and no detail.
  *
  * @typedef {import('../../pipeline/ViolationEngine.js').Violation} Violation
  */

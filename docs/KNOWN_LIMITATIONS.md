@@ -2,6 +2,15 @@
 
 Updated at the end of each phase. Status: Phase 6 (2026-11-11). The user's Phase 4 webcam session led to GAZE_AWAY tuning; Phase 3, Phase 5, and Phase 6 real-webcam checks are pending.
 
+## Violation snapshots (2026-11-13)
+
+- **Retention needs an open lab page.** A browser cannot run code for a closed page, so a snapshot that expires while no lab page is open stays on disk until the lab is next opened, which deletes it first. Clearing the site's data in the browser removes snapshots at any time.
+- **The image is the moment of confirmation, not the onset.** It is drawn when the violation is confirmed (26–34 ms after the confirming frame in the browser check). For rules with a minimum duration (NO_FACE 1 s, LIGHTING_ISSUE 5 s) the condition has then lasted that long; what happened at the onset is not captured.
+- **Main-thread cost.** Drawing a snapshot blocks the main thread for about 8–13 ms (headed Chrome on this laptop). Snapshots are taken during benchmark runs too; turn them off in the configuration (`snapshots.enabled`) for measurements that must exclude this.
+- **Sizes are unmeasured for real scenes.** The synthetic camera's frame encodes to 9–10 KB at 960×540; webcam frames with a face and a room are larger. 300 snapshots is the upper bound.
+- **One tab's view.** Each tab lists the snapshots stored when it loaded plus those it took itself; another tab's new snapshots appear after a reload. Retention and deletion work across tabs.
+- **Not a production evidence store.** Snapshots are images of a person; production use needs legal review of consent, retention, and access, as for face templates.
+
 ## Scope of Phase 6 results (object detection)
 
 - **Follow-up (2026-11-12).** The first default (NanoDet-Plus on the whole frame scaled to 640 px) missed phones at arm's length in a live session: scores stayed below 0.5, so `PHONE_DETECTED` never fired. The default is now MediaPipe EfficientDet-Lite2 with the zoom pass (whole frame plus two full-resolution squares). In 17 webcam-like scenes it found the phone in 14 (NanoDet before: 5); it missed phones seen edge-on or in a dark room at half size. This is still a composed-scene test, not a webcam session.

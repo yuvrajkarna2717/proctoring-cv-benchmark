@@ -16,6 +16,8 @@ import { QualityMonitor } from "../quality/qualityModel.js";
 import { createIdentityStore } from "../identity/IdentityStore.js";
 import { DetectionPipeline } from "../pipeline/DetectionPipeline.js";
 import { ViolationEngine } from "../pipeline/ViolationEngine.js";
+import { SnapshotManager } from "../snapshots/SnapshotManager.js";
+import { createSnapshotStore } from "../snapshots/SnapshotStore.js";
 import { epochNow } from "../utils/clock.js";
 import {
   CameraError,
@@ -132,6 +134,8 @@ export class LabController {
   #identity;
   /** @type {AttentionManager} */
   #attention;
+  /** @type {SnapshotManager} */
+  #snapshots;
   /** status, target, and attempt of the calibration last published */
   #calibrationKey = "";
   /** @type {QualityMonitor} */
@@ -159,6 +163,8 @@ export class LabController {
    *   window watched for visibility and focus changes (defaults to the current page)
    * @param {import('../identity/IdentityStore.js').IdentityStore} [options.identityStore]
    *   defaults to IndexedDB, or memory where IndexedDB is missing
+   * @param {import('../snapshots/SnapshotStore.js').SnapshotStore} [options.snapshotStore]
+   *   violation snapshots; defaults to IndexedDB, or memory where IndexedDB is missing
    */
   constructor({
     config = DEFAULT_LAB_CONFIG,
@@ -168,6 +174,7 @@ export class LabController {
     now = epochNow,
     pageEnvironment = { document: globalThis.document, window: globalThis.window },
     identityStore = createIdentityStore(),
+    snapshotStore = createSnapshotStore(),
   } = {}) {
     this.#config = validateLabConfig(structuredClone(config));
     this.#camera = cameraManager;
@@ -191,15 +198,17 @@ export class LabController {
       config: this.#config.identity,
       store: identityStore,
       now,
-      getCamera: () => {
-        const track = this.#cameraState.track;
-        return track
-          ? { label: track.label, width: track.settings.width, height: track.settings.height }
-          : null;
-      },
+      getCamera: () => this.#cameraInfo(),
     });
     this.#identity.onEvent((event) => this.#onIdentityEvent(event));
     void this.#identity.load();
+    this.#snapshots = new SnapshotManager({
+      config: this.#config.snapshots,
+      store: snapshotStore,
+      now,
+      getCamera: () => this.#cameraInfo(),
+    });
+    this.#snapshots.onEvent((event) => this.#onSnapshotEvent(event));
     this.#attention = new AttentionManager({ config: this.#config.attention, now });
     this.#attention.onEvent((event) => this.#onAttentionEvent(event));
     for (const definition of this.#config.engines) {
@@ -643,11 +652,34 @@ export class LabController {
     this.#publish();
   }
 
-  /** Clears the violation history and statistics. */
+  /** Clears the violation history and statistics. Snapshots are kept until they expire. */
   clearViolations() {
     this.#violations.clear();
     this.#log("info", "violations", "Violation history cleared");
     this.#publish();
+  }
+
+  // ---- violation snapshots ----------------------------------------------------------------
+
+  /**
+   * Image of a stored snapshot, for display (`URL.createObjectURL`).
+   *
+   * @param {string} id
+   * @param {'image' | 'thumbnail'} [kind]
+   * @returns {Promise<Blob | null>} null once deleted or expired
+   */
+  getSnapshotImage(id, kind = "image") {
+    return this.#snapshots.getBlob(id, kind);
+  }
+
+  /** @param {string} id */
+  async deleteSnapshot(id) {
+    await this.#snapshots.delete(id);
+  }
+
+  /** Deletes every stored snapshot, including those of earlier page sessions. */
+  async deleteAllSnapshots() {
+    await this.#snapshots.deleteAll();
   }
 
   // ---- identity: enrollment, verification, calibration -----------------------------------
@@ -794,14 +826,17 @@ export class LabController {
         attention: snapshot.attention.config,
         imageQuality: snapshot.imageQuality.config,
         objects: snapshot.objects.config,
+        snapshots: this.#config.snapshots,
       },
       deviceProfile: this.#deviceProfile,
-      snapshot,
+      // Violation snapshots stay in the browser: the report has their count, not their list.
+      snapshot: { ...snapshot, snapshots: withoutItems(snapshot.snapshots) },
     };
   }
 
   async dispose() {
     this.stopCamera();
+    this.#snapshots.dispose();
     await Promise.allSettled([...this.#slots.values()].map((slot) => this.#unloadEngine(slot)));
     this.#camera.dispose();
     this.#listeners.clear();
@@ -846,6 +881,7 @@ export class LabController {
       attention: this.#attention.getSnapshot(),
       imageQuality: this.#quality.getSnapshot(),
       objects: this.#objects.getSnapshot(),
+      snapshots: this.#snapshots.getSnapshot(),
       deviceProfile: this.#deviceProfile,
       log: [...this.#logEntries],
     };
@@ -1073,22 +1109,43 @@ export class LabController {
         "violations",
         `${violation.type} started (${condition} for ${seconds(violation.confirmedAt - violation.startedAt)}, severity ${violation.severity}${against})`,
       );
+      this.#snapshots.capture(this.#video, violation);
     } else if (type === "violation-escalated") {
       this.#log(
         "warn",
         "violations",
         `${violation.type} still active after ${seconds(violation.durationMs)}: severity raised to ${violation.severity}`,
       );
+      void this.#snapshots.updateViolation(violation);
     } else {
       this.#log(
         "info",
         "violations",
         `${violation.type} ended after ${seconds(violation.durationMs)} (${violation.endReason})`,
       );
+      void this.#snapshots.updateViolation(violation);
     }
     // Violations are rare (a few a minute), so each change is shown at once instead of waiting
     // up to uiRefreshIntervalMs for the next refresh.
     this.#publish();
+  }
+
+  /** @param {import('../snapshots/SnapshotManager.js').SnapshotEvent} event */
+  #onSnapshotEvent(event) {
+    if (event.type === "log") {
+      this.#log(event.level, "snapshots", event.message);
+      return;
+    }
+    // A snapshot was stored, updated, or deleted: at most a few a minute.
+    this.#publish();
+  }
+
+  /** The running camera's label and resolution, or null. */
+  #cameraInfo() {
+    const track = this.#cameraState.track;
+    return track
+      ? { label: track.label, width: track.settings.width, height: track.settings.height }
+      : null;
   }
 
   /** @param {import('../identity/IdentityManager.js').IdentityEvent} event */
@@ -1274,6 +1331,15 @@ export class LabController {
     this.#snapshot = this.buildSnapshot();
     for (const listener of this.#listeners) listener();
   }
+}
+
+/**
+ * Snapshot state without the list of snapshots.
+ *
+ * @param {ReturnType<SnapshotManager['getSnapshot']>} snapshots
+ */
+function withoutItems({ items: _items, ...rest }) {
+  return rest;
 }
 
 /** @param {number | null | undefined} value */

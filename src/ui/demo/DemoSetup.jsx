@@ -5,7 +5,7 @@ import { describeError } from "../../utils/errors.js";
 import { ConfirmButton } from "../common/ConfirmButton.jsx";
 import { formatNumber } from "../common/format.js";
 import { useLabController, useLabSnapshot } from "../common/labContext.js";
-import { formatTime } from "./violationText.js";
+import { formatTime } from "../violations/violationText.js";
 
 /** What to do about the first failed enrollment-gate check of the latest frame, by check id. */
 const GATE_HINTS = /** @type {Record<string, string>} */ ({

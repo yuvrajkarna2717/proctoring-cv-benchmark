@@ -9,6 +9,7 @@ import { describeError } from "../../utils/errors.js";
 import { CommitNumberInput } from "../common/CommitNumberInput.jsx";
 import { formatClock, formatInteger, formatNumber } from "../common/format.js";
 import { useLabController, useLabSnapshot } from "../common/labContext.js";
+import { SnapshotsModal } from "../snapshots/SnapshotsModal.jsx";
 
 const STATE_VARIANTS = {
   inactive: "secondary",
@@ -66,8 +67,12 @@ function imageNote(violation) {
  */
 export function ViolationsPanel() {
   const controller = useLabController();
-  const { violations } = useLabSnapshot();
+  const { violations, snapshots } = useLabSnapshot();
   const [error, setError] = useState(/** @type {string | null} */ (null));
+  /** null: closed; id null: all snapshots; otherwise one snapshot */
+  const [snapshotView, setSnapshotView] = useState(
+    /** @type {{ id: string | null } | null} */ (null),
+  );
 
   /**
    * For switches and selects; number inputs show their own validation errors.
@@ -103,10 +108,21 @@ export function ViolationsPanel() {
             {violations.active.length} active
           </Badge>
         )}
+        {snapshots.enabled && (
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            className="ms-auto text-nowrap"
+            onClick={() => setSnapshotView({ id: null })}
+            data-testid="open-snapshots"
+          >
+            Snapshots ({snapshots.count})
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline-secondary"
-          className="ms-auto"
+          className={snapshots.enabled ? undefined : "ms-auto"}
           onClick={() => controller.clearViolations()}
         >
           Clear
@@ -353,6 +369,12 @@ export function ViolationsPanel() {
           </tbody>
         </Table>
       </Card.Body>
+      <SnapshotsModal
+        show={snapshotView !== null}
+        selectedId={snapshotView?.id ?? null}
+        onSelect={(id) => setSnapshotView({ id })}
+        onHide={() => setSnapshotView(null)}
+      />
     </Card>
   );
 }

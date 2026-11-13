@@ -3,7 +3,7 @@ import CloseButton from "react-bootstrap/CloseButton";
 import Toast from "react-bootstrap/Toast";
 import ToastContainer from "react-bootstrap/ToastContainer";
 import { useLabController } from "../common/labContext.js";
-import { describeViolation, formatTime } from "./violationText.js";
+import { describeViolation, formatTime } from "../violations/violationText.js";
 
 /** Toasts shown at once; app.css sizes the video to leave room for three. Older ones fade out. */
 const MAX_VISIBLE = 3;

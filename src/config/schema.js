@@ -430,6 +430,34 @@ export const ObjectsLabConfigSchema = z
 /** @typedef {z.infer<typeof ObjectsLabConfigSchema>} ObjectsLabConfig */
 
 /**
+ * Violation snapshots: when a violation starts, the camera image is saved with the violation's
+ * details in this browser's IndexedDB, for review. They are never uploaded and never part of
+ * exported reports.
+ */
+export const SnapshotsConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    /**
+     * Snapshots are deleted this long after they were taken: on time while the lab is open,
+     * otherwise when it is next opened.
+     */
+    maxAgeMs: z
+      .number()
+      .int()
+      .min(60_000)
+      .max(7 * 24 * 3_600_000),
+    /** Beyond this many stored snapshots, the oldest are deleted. */
+    maxCount: z.number().int().min(1).max(2000),
+    /** Width of the stored image in pixels; larger camera frames are scaled down. */
+    maxWidth: z.number().int().min(160).max(3840),
+    /** JPEG quality of the stored image, 0–1. */
+    jpegQuality: z.number().min(0.3).max(1),
+  })
+  .strict();
+
+/** @typedef {z.infer<typeof SnapshotsConfigSchema>} SnapshotsConfig */
+
+/**
  * Requirements a face embedding must meet before it is used. Every value is a starting point;
  * the Identity panel shows the measured value of each check next to its limit.
  */
@@ -515,6 +543,7 @@ export const LabConfigSchema = z
     attention: AttentionConfigSchema,
     imageQuality: ImageQualityLabConfigSchema,
     objects: ObjectsLabConfigSchema,
+    snapshots: SnapshotsConfigSchema,
   })
   .strict()
   .superRefine((config, context) => {

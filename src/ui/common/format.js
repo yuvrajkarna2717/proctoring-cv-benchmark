@@ -34,6 +34,16 @@ export function formatClock(epochMs) {
   return `${date.toLocaleTimeString(undefined, { hour12: false })}.${millis}`;
 }
 
+/** A retention period in whole hours or minutes, e.g. "1 hour", "90 minutes". @param {number} ms */
+export function formatRetention(ms) {
+  const minutes = Math.round(ms / 60_000);
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
 /** @param {number | null | undefined} ms */
 export function formatDuration(ms) {
   if (!isFiniteNumber(ms)) return DASH;

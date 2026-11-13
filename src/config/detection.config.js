@@ -345,6 +345,15 @@ export const DEFAULT_LAB_CONFIG = Object.freeze(
     },
     // Object detection (Phase 6): which instance feeds PHONE_DETECTED.
     objects: { sourceEngineId: "objects-effdet-lite2", historySize: 120 },
+    // Violation snapshots: the camera image when a violation starts, with its details, kept in
+    // this browser for 1 hour. At most 300; JPEG up to 960 px wide.
+    snapshots: {
+      enabled: true,
+      maxAgeMs: 3_600_000,
+      maxCount: 300,
+      maxWidth: 960,
+      jpegQuality: 0.8,
+    },
     // Starting values. The Identity panel shows each measured value next to its limit.
     identity: {
       sourceEngineId: "face-verifier",

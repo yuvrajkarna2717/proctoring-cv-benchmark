@@ -134,6 +134,19 @@ These problems showed up in smoke runs and are now handled:
 - In the Phase 6 runs it ended its track once, in Edge's first attempt during window A (`reports/phase6-smoke-msedge-2026-11-11T13-32-08-531Z.json`); the second attempt passed.
 - DevTools-protocol evaluations may compile strings even under a CSP, so an `eval` probe run directly through Playwright's `worker.evaluate()` succeeded in the CSP-protected worker. The probe now runs from a timer task inside the worker, where the CSP applies.
 
+## Manual check: violation snapshots
+
+Use http://localhost:5173/demo (or the lab's Violations panel, "Snapshots"). Snapshots are kept for 1 hour.
+
+| #   | Action                                                             | Expected                                                                                                                |
+| --- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 1   | Start the camera and leave the camera view for 2 s                 | A NO_FACE toast and log entry with a thumbnail of the empty view                                                        |
+| 2   | Click the thumbnail                                                | The image large, not mirrored, with the violation's times, detail, camera, and "Kept until" one hour after it was taken |
+| 3   | Come back; open the snapshot again                                 | Duration "lasted … s, ended: cleared"                                                                                   |
+| 4   | Hold up a phone, then look away; reload the page; open "Snapshots" | Every violation of the session listed with its colour; after the reload marked "earlier session" and still openable     |
+| 5   | "Delete" one snapshot, then "Delete all"                           | The list empties; in DevTools, Application › IndexedDB › `proctoring-cv-lab-snapshots` has no records                   |
+| 6   | Export a report from the lab                                       | `snapshot.snapshots.count` and `config.snapshots` are present; the file has no image data                               |
+
 ## Manual webcam checklist (Phase 6: object detection)
 
 The synthetic camera shows no objects, so detection quality is only tested here. Use the production build in Chrome. By default MediaPipe EfficientDet-Lite2 runs with the zoom pass ("Tiles") and feeds the rules. For comparison, turn on the other three object engines in their cards (YOLOX takes about 6 s to load); the Objects panel is under the Violations panel and shows each model's counts side by side. Keep "Object boxes" on to see what each model reports. Start detection again before each group of steps, so the counts start at zero.
